@@ -1,0 +1,9 @@
+# Copy to tts.yaml and fill in your own command. Never commit keys here.
+# Template placeholders: {text} {output} {language} {voice}
+# The command must write an audio file to {output} and exit 0.
+# Default (sandbox verification only, not portable): tts speak --language {language} --voice {voice} --output {output} --text {text}
+template: "tts speak --language {language} --voice {voice} --output {output} --text {text}"
+language: zh
+voice: avocado_v2:MAI_03
+# For a product TTS, replace the template with your vendor CLI / wrapper
+# script, and pass its key via the environment, never in this file.

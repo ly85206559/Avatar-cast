@@ -21,6 +21,14 @@
 
 每次 Benchmark 输出一份带日期的报告：测试集版本、模型与参数版本、四个指标、每段五维分数、成本明细。报告进 `benchmarks/`，不要只记在聊天记录里。
 
+## v0.3 已接入的评分器（实测口径，标签不能混）
+
+- **ASR 转写（真接入）**：Vosk 离线中文小模型 `vosk-model-small-cn-0.22`（42 MB，CPU 可跑）。2026-10-28 在 s1 中文音频上实测：16 个词中 15 个正确（仅“AI”听成“哎”），字符准确率 0.9455，过 85% 门。模型不进仓库，用 `VOSK_MODEL_PATH` 指向下载好的模型目录，见 `src/dhp/asr_vosk.py`。
+- **念对率**：`qa_scorers.char_accuracy`，字符级 difflib 比对，不是词级 WER 的冒充。
+- **唇音启发式（不是 SyncNet）**：嘴部区域亮度水平与音频 RMS 包络的 Pearson 相关（±2 帧找最佳延迟）。合成素材校准：同步 0.9985，未同步 -0.2785。真 SyncNet 需要 torch + 训练权重 + 充足算力，本机 2 核 / 无 GPU / 内存紧张，v0.3 不装、不冒充。
+- **画面一致性代理（不是人脸 embedding）**：平均哈希（aHash）帧相似度，只能说“画面像不像”，不能说“是不是同一个人”。真 embedding 走 `FaceEmbeddingProvider`：只接受已裁好的人脸图 + 调用方提供的 ONNX 模型 + onnxruntime，三样缺一样就报错，绝不编向量。
+- **TTS（可换的缝）**：`CommandTTSProvider`，默认模板是本机沙箱 tts 命令（中文实测出音），仅作本地验证，不可移植；产品 TTS 请按 `config/tts.example.yaml` 换自己的命令。
+
 ## 常见作弊（不要做）
 
 - 只挑过线的段算平均，把没过的段悄悄删掉

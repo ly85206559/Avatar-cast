@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v0.3.0 — 2026-10-28：真实评分器接入（标签不混）
+
+- **ASR 真接入**：Vosk 离线中文小模型，s1 实测字符准确率 0.9455（16 词错 1 个），带逐字时间，可直接进时间轴。模型不进仓库。
+- **TTS 缝**：`CommandTTSProvider`，默认沙箱 tts 命令中文实测出音，仅本地验证；产品 TTS 按 `config/tts.example.yaml` 换命令。
+- **唇音启发式（不是 SyncNet）**：嘴部亮度水平 vs 音频 RMS 相关，合成素材同步 0.9985 / 未同步 -0.2785。真 SyncNet 需 torch + 权重 + 算力，本机不装、不冒充。
+- **画面一致性代理（不是人脸 embedding）**：aHash 帧相似度。真 embedding 只走 `FaceEmbeddingProvider`（人脸裁图 + 调用方 ONNX 模型 + onnxruntime），缺一样就报错。
+- **本地唇形**：`check_environment()` 实测本机不可行（无 GPU、无 torch、内存紧张），`drive()` 仍显式拒绝，绝不用通用视频冒充唇形。
+- **API 真跑**：`scripts/api_lipsync_run.py`，缺 key / 公开 URL / 实时价 / `--confirm` 任一样都不花钱；本次未花钱，仍缺用户提供的三样。
+- **直播**：只做了 `live.py` 状态机与延迟预算（接口），无 RTMP、无流式模型，三期仍未实现。
+- 测试：23 通过、1 跳过（系统 Python 无 vosk，Vosk 转写已在独立 venv 中手工实测通过，见上）。
+
 ## v0.2.0 — 2026-10-28：去旧影子 + 全面升级
 
 这次升级的目标只有一个：AvatarCast 从第一行起就是它自己，不带之前仓库的影子。
