@@ -1,0 +1,1 @@
+{"$schema":"http://json-schema.org/draft-07/schema#","properties":{"caption_style":{"type":"string"},"duration_target_sec":{"minimum":1,"type":"integer"},"persona_id":{"type":"string"},"ratio":{"enum":["16:9","9:16","1:1"]},"style":{"type":"string"},"topic":{"type":"string"}},"required":["topic","style","ratio","persona_id"],"title":"brief","type":"object"}
