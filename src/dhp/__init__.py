@@ -1,3 +1,3 @@
-"""digital-human-pipeline: audio-first, measurable digital-human video pipeline."""
+"""AvatarCast: audio-first, measurable digital-human video pipeline."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

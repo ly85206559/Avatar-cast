@@ -1,8 +1,10 @@
-"""CLI skeleton. Phase 1: validate contracts, print the cost quote, stop.
+"""CLI v0.2: validate contracts, print cache keys, and build a plan.
 
-This intentionally does NOT generate anything yet. The first milestone is:
-contracts pass -> quote printed -> cache key printed. Generation adapters
-plug in behind the provider interfaces in providers.py.
+Generation itself lives behind the provider interfaces in providers.py
+(API lip-sync in lipsync_api.py, local as an explicit extension point).
+Planning lives in pipeline.py, overlay components in components.py,
+media assembly in render.py, and benchmark comparison in
+scripts/benchmark.py.
 """
 
 from __future__ import annotations
@@ -29,7 +31,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         key = segment_cache_key(seg, brief["persona_id"], "TBD", "TBD", {}, "TBD")
         print(f"{seg['id']}: shot={seg['shot']} cache_key={key[:16]}... (provider TBD)")
-    print("contracts OK. Next step: implement one TTSProvider + one LipSyncProvider.")
+    print("contracts OK. See pipeline.plan() for the quote gate, "
+          "components.filter_renderable() for overlays, and render.py for assembly.")
     return 0
 
 

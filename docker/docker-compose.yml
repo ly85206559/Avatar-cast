@@ -1,0 +1,9 @@
+services:
+  dhp:
+    build: .
+    volumes:
+      - ../examples:/app/examples:ro
+      - ../outputs:/app/outputs
+    environment:
+      - WAVESPEED_API_KEY=${WAVESPEED_API_KEY:-}
+    command: ["dhp", "examples/demo-script.json"]
