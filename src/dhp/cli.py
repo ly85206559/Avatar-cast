@@ -1,4 +1,7 @@
-"""CLI v0.2: validate contracts, print cache keys, and build a plan.
+"""CLI: validate contracts, print cache keys, and build a plan.
+
+`dhp demo` runs the offline demo loop (demo.py): synthetic clips only,
+zero cost, lip-sync explicitly not evaluated.
 
 Generation itself lives behind the provider interfaces in providers.py
 (API lip-sync in lipsync_api.py, local as an explicit extension point).
@@ -18,6 +21,15 @@ from .cache import segment_cache_key
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Console-script entry points call main() with no argv; argparse then
+    # reads sys.argv itself. The demo branch must look at the same source.
+    args_list = list(argv) if argv is not None else sys.argv[1:]
+    if args_list and args_list[0] == "demo":
+        # `dhp demo` is the offline, zero-cost loop in demo.py. It never
+        # generates a talking head and never spends money; see demo.py.
+        from .demo import main as demo_main
+
+        return demo_main(args_list[1:])
     p = argparse.ArgumentParser(prog="dhp")
     p.add_argument("script", help="script.json path")
     p.add_argument("--brief", default="examples/demo-brief.json")
