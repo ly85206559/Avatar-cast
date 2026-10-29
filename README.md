@@ -1,12 +1,27 @@
 # AvatarCast：数字人视频流水线，音频优先、可验证
 
-> 仓库名已定：`avatarcast`（公开）。Avatar + Cast：数字人出镜、开口说话、成片播出——名字一眼就是数字人视频，不是只讲嘴型的工具。
+> GitHub 仓库显示名：`Avatar-cast`（公开）；本地目录与包名仍为 `avatarcast`，不跟改。Avatar + Cast：数字人出镜、开口说话、成片播出——名字一眼就是数字人视频，不是只讲嘴型的工具。
 >
 > 内核承诺：声音锁死，嘴型锁死，质量有分。
 >
 > 默认唇形路线：API 先行（WaveSpeed OmniHuman 1.5，见 `docs/API_LIPSYNC.md`），本地模型保留为可插拔扩展，不写死。
 
 > 定位：一句话说清这个项目是干什么的——**先把声音和情绪锁死，再生成画面；每一段都能自动评分、自动重拍；同一份稿子、同一个主播、换模型也能复现。**
+>
+> 许可证：MIT，见 `LICENSE`。贡献先看 `CONTRIBUTING.md`，第一条是标签纪律：代理分数不许说成真分数，演示占位不许说成唇形证据。
+
+## 快速上手（5 分钟，不花钱）
+
+```bash
+pip install -e ".[test]"   # 需要系统里有 ffmpeg / ffprobe
+python -m pytest -q
+dhp examples/demo-script.json        # 只校验契约、打印缓存键
+dhp demo --out outputs/demo          # 离线演示：合成色块 + 正弦音组装出片 + qa.json
+```
+
+`dhp demo` 全程离线、零成本，出的不是数字人：它是色块占位视频，用来跑通报价门 → 组件过滤 → ffmpeg 组装 → SRT → qa.json 这一整条线。它的 qa.json 里每段都是 `warn`，唇形、人脸、ASR 明确标 `not_evaluated`——占位视频没有真人头可评，报 `pass` 就是造假。真唇形证据只能走 `scripts/api_lipsync_run.py`（有门禁、要花钱）或本地唇形模型，再用同一套 QA 去评。
+
+下面是完整设计思路，读完快速上手再往下看。
 >
 > 它不是对某一个开源 skill 的复刻。参考的只是通用方法论：用 JSON 做环节间契约、用分段生成拼长视频、用自动指标代替人工看帧。组件参数、提示词模板、包装规则请用你自己的实测数据重新量，不要直接搬运别人的。
 
@@ -68,7 +83,8 @@ AvatarCast 不是从某个现成工具改出来的，它从第一行起就是为
 - `pipeline.py`（v0.2 新增）：报价门、重拍策略、任务计划
 - `components.py`（v0.2 新增）：声明式包装组件与校验
 - `render.py`（v0.2 新增）：ffmpeg 组装（响度归一、帧率/采样率统一、SRT 导出）
-- `cli.py`：`dhp` 命令行（校验、报价、计划、组装）
+- `cli.py`：`dhp` 命令行（校验、报价、计划、组装；`dhp demo` 为离线演示）
+- `demo.py`（v0.4 新增）：离线演示循环，合成占位视频 + qa.json（全段 `warn`，唇形/人脸/ASR 标 `not_evaluated`），零成本、不花钱
 - `registry.py`：唇形 provider 注册与默认路由
 - 直播链路（ASR → LLM → 流式 TTS → 实时唇形 → RTMP）是三期目标，v0.2 不含
 
@@ -213,6 +229,7 @@ AvatarCast 的组件是自己的一套：组件只声明“在哪个词上、放
 
 - [x] v0.2 已做：报价门 + 缓存 + 重拍策略（`pipeline.py`）、声明式组件（`components.py`）、ffmpeg 组装（`render.py`）、Benchmark（`scripts/benchmark.py`）
 - [x] v0.3 已做：Vosk 中文 ASR 实测接入、TTS 命令缝、唇音启发式（非 SyncNet）、画面一致性代理（非人脸 embedding）、本地唇形环境检查、API 真跑脚本（未花钱）、直播状态机（接口）
+- [x] v0.4 已做：MIT 许可证、CONTRIBUTING、CI、pyproject 依赖分层、README 快速上手、离线演示命令（零成本、占位视频、qa.json 全段 `warn`）、固定测试集基线落盘（`benchmark/baseline-v0.3.json`）
 - [ ] 保留 JSON 契约，生成层换成多模型适配器（接口已定，适配器待接）
 - [ ] 接入音频优先流程：TTS 锁定 → 音频驱动唇形 → 对齐（API 唇形已实现提交规则，尚未真跑）
 - [ ] 五维自动评分器 + 阈值门 + 自动重拍（阈值已定，重型评分模型未接入）
@@ -266,7 +283,11 @@ AvatarCast 的组件是自己的一套：组件只声明“在哪个词上、放
 ```
 avatarcast/
 ├── README.md                  # 本文件：完整优化思路
+├── LICENSE                    # MIT
+├── CONTRIBUTING.md            # 贡献指南与标签纪律
 ├── CHANGELOG.md               # 版本记录，含“仍未实装”诚实清单
+├── benchmark/baseline-v0.3.json  # 固定测试集基线数（带每项来源）
+├── .github/workflows/test.yml    # CI：多 Python 版本测试 + 离线演示
 ├── docs/
 │   ├── ARCHITECTURE.md        # 架构与模块边界
 │   ├── CONTRACTS.md           # JSON 契约详解
