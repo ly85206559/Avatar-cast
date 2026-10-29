@@ -16,7 +16,8 @@ def cache_key(payload: dict) -> str:
 
 
 def segment_cache_key(segment: dict, persona_id: str, model: str,
-                      model_version: str, params: dict, audio_sha256: str) -> str:
+                      model_version: str, params: dict, audio_sha256: str,
+                      reference_sha256: str | None = None) -> str:
     return cache_key({
         "text": segment["text"],
         "persona_id": persona_id,
@@ -24,4 +25,5 @@ def segment_cache_key(segment: dict, persona_id: str, model: str,
         "model_version": model_version,
         "params": params,
         "audio_sha256": audio_sha256,
+        "reference_sha256": reference_sha256,
     })

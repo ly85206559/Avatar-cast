@@ -1,5 +1,7 @@
 import shutil
 import subprocess
+import math
+import array
 
 import pytest
 
@@ -41,3 +43,39 @@ def test_normalize_and_concat(tmp_path):
     final = tmp_path / "final.mp4"
     concat_clips([str(norm), str(norm)], str(final))
     assert abs(probe_duration_sec(str(final)) - 2.0) < 0.3
+
+
+def test_locked_audio_replaces_video_audio(tmp_path):
+    from dhp.render import normalize_clip, probe_duration_sec
+
+    src = tmp_path / "with_other_audio.mp4"
+    locked = tmp_path / "locked.wav"
+    out = tmp_path / "out.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-i", "color=c=blue:s=160x90:d=1",
+        "-f", "lavfi", "-i", "sine=frequency=440:d=1.25",
+        "-t", "1.25", str(src),
+    ], check=True)
+    subprocess.run([
+        "ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
+        "sine=frequency=880:d=1", str(locked),
+    ], check=True)
+    normalize_clip(str(src), str(out), 1.25, locked_audio_path=str(locked))
+    assert abs(probe_duration_sec(str(out)) - 1.25) < 0.15
+    video_duration = subprocess.run([
+        "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+        "stream=duration", "-of", "default=nw=1:nk=1", str(out),
+    ], capture_output=True, text=True, check=True).stdout
+    assert float(video_duration) >= 1.24
+    decoded = subprocess.run([
+        "ffmpeg", "-v", "error", "-i", str(out), "-t", "0.8", "-ac", "1",
+        "-ar", "8000", "-f", "s16le", "-",
+    ], capture_output=True, check=True).stdout
+    samples = array.array("h", decoded)
+
+    def strength(frequency):
+        return abs(sum(sample * math.sin(2 * math.pi * frequency * i / 8000)
+                       for i, sample in enumerate(samples)))
+
+    assert strength(880) > 10 * strength(440)

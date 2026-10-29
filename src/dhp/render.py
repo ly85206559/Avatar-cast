@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 TAIL_SEC = 0.25
@@ -63,20 +64,28 @@ def write_srt(segments: list[dict], path: str) -> str:
     for i, seg in enumerate(segments, 1):
         lines.append(str(i))
         lines.append(f"{fmt(seg['start'])} --> {fmt(seg['end'])}")
-        lines.append(seg["text"])
+        lines.append(" ".join(seg["text"].splitlines()))
         lines.append("")
     Path(path).write_text("\n".join(lines), encoding="utf-8")
     return path
 
 
-def normalize_clip(input_path: str, output_path: str, keep_sec: float) -> str:
-    """Trim to keep_sec, normalise loudness/fps/rate. Returns output_path."""
+def normalize_clip(input_path: str, output_path: str, keep_sec: float,
+                   locked_audio_path: str | None = None) -> str:
+    """Normalise a clip, optionally replacing its audio with the locked track."""
     _need("ffmpeg")
+    inputs = ["-i", input_path]
+    mapping = []
+    video_filter = f"fps={TARGET_FPS}"
+    if locked_audio_path is not None:
+        inputs += ["-i", locked_audio_path]
+        mapping = ["-map", "0:v:0", "-map", "1:a:0"]
+        video_filter += f",tpad=stop_mode=clone:stop_duration={TAIL_SEC}"
     subprocess.run([
-        "ffmpeg", "-y", "-v", "error", "-i", input_path,
+        "ffmpeg", "-y", "-v", "error", *inputs, *mapping,
         "-t", str(keep_sec),
-        "-vf", f"fps={TARGET_FPS}",
-        "-af", f"loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=11,aresample={TARGET_RATE}",
+        "-vf", video_filter,
+        "-af", f"loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=11,aresample={TARGET_RATE},apad",
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
         output_path,
     ], check=True)
@@ -98,4 +107,19 @@ def concat_clips(clip_paths: list[str], output_path: str) -> str:
         ], check=True)
     finally:
         list_file.unlink(missing_ok=True)
+    return output_path
+
+
+def burn_subtitles(input_path: str, subtitle_path: str, output_path: str) -> str:
+    """Make captions visible in players that do not load external SRT files."""
+    ffmpeg = _need("ffmpeg")
+    # A fixed relative filename avoids FFmpeg filter escaping of Windows paths.
+    with tempfile.TemporaryDirectory(prefix="avatarcast-captions-") as work:
+        shutil.copyfile(subtitle_path, Path(work) / "captions.srt")
+        subprocess.run([
+            ffmpeg, "-y", "-v", "error", "-i", str(Path(input_path).resolve()),
+            "-vf", "subtitles=captions.srt:force_style='FontSize=24,Bold=1,Outline=1,MarginV=18'",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "copy",
+            "-movflags", "+faststart", str(Path(output_path).resolve()),
+        ], cwd=work, check=True)
     return output_path

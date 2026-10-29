@@ -23,4 +23,28 @@ def test_qa_verdict_rejects_burned_subtitle():
 
     assert verdict({"burned_subtitle": True, "wer_accuracy": 0.99}) == "fail"
     assert verdict({"burned_subtitle": False, "wer_accuracy": 0.92,
-                    "face_cosine": 0.95, "voice_drift": 0.1}) == "pass"
+                    "lipsync_score": 0.5, "face_cosine": 0.95,
+                    "voice_drift": 0.1}) == "pass"
+
+
+def test_qa_requires_all_measurements_and_checks_lipsync():
+    from dhp.qa import verdict
+
+    scores = {"burned_subtitle": False, "wer_accuracy": 0.92,
+              "lipsync_score": 0.5, "face_cosine": 0.95, "voice_drift": 0.1}
+    assert verdict({k: v for k, v in scores.items() if k != "lipsync_score"}) == "unverified"
+    assert verdict({**scores, "lipsync_score": -0.1}) == "fail"
+    assert verdict({**scores, "lipsync_score": float("nan")}) == "unverified"
+    assert verdict({"burned_subtitle": True}) == "fail"
+    schema = json.loads((ROOT / "schemas/qa.json").read_text(encoding="utf-8"))
+    assert verdict({}) in schema["properties"]["verdict"]["enum"]
+
+
+def test_cache_key_changes_with_reference_image():
+    from dhp.cache import segment_cache_key
+
+    args = ({"text": "hello"}, "presenter", "model", "1", {}, "audio")
+    assert segment_cache_key(*args, reference_sha256="image1") == segment_cache_key(
+        *args, reference_sha256="image1")
+    assert segment_cache_key(*args, reference_sha256="image1") != segment_cache_key(
+        *args, reference_sha256="image2")

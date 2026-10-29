@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -21,10 +22,23 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="dhp")
     p.add_argument("script", help="script.json path")
     p.add_argument("--brief", default="examples/demo-brief.json")
+    p.add_argument("--dry-run", action="store_true", help="run an offline synthetic-media pipeline")
+    p.add_argument("--output-dir", default="dry-run-output")
+    p.add_argument("--cache-dir", default=".dry-run-cache")
     args = p.parse_args(argv)
 
     script = json.loads(Path(args.script).read_text(encoding="utf-8"))
     brief = json.loads(Path(args.brief).read_text(encoding="utf-8"))
+    if args.dry_run:
+        from .dry_run import DryRunError, run_dry_run
+
+        try:
+            report = run_dry_run(script, brief, args.output_dir, args.cache_dir)
+        except (DryRunError, ValueError, RuntimeError, OSError, subprocess.CalledProcessError) as exc:
+            print(f"dry-run failed: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
     for seg in script:
         if seg["shot"] not in ("talking_head", "b_roll", "demo", "scene"):
             print(f"invalid shot: {seg}", file=sys.stderr)

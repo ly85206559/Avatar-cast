@@ -10,6 +10,21 @@
 >
 > 它不是对某一个开源 skill 的复刻。参考的只是通用方法论：用 JSON 做环节间契约、用分段生成拼长视频、用自动指标代替人工看帧。组件参数、提示词模板、包装规则请用你自己的实测数据重新量，不要直接搬运别人的。
 
+## 离线多段流程演练
+
+需要 Python 3.10+、FFmpeg 和 ffprobe。安装项目后，从仓库根目录运行：
+
+```powershell
+python -m pip install -e .
+python -m dhp.cli examples/demo-script.json --brief examples/demo-brief.json --dry-run --output-dir outputs/dry-run --cache-dir outputs/dry-run-cache
+```
+
+演练要求至少两段，`brief.duration_target_sec` 为 30–60 秒。输出目录必须不存在或为空，且与缓存目录相互独立；其中会生成 `final.mp4`、独立的 `subtitles.srt` 和 `qa.json`。再次运行时使用新的空输出目录和同一缓存目录，即可检查并复用有效缓存。修改文本长度会改变按文本长度分配的各段时长，因此可能使其他段的缓存也失效。
+
+该模式完全离线，使用 640×360 分段测试卡与合成音调，不是真实语音或数字人；字幕按模拟段落时长生成，保留独立 SRT，同时烧录到视频内，直接播放即可看到。需要 FFmpeg 含 drawtext/subtitles 滤镜，以及本机安装中文字体。报告中的评分和价格均为模拟值，`quality_verdict` 为 `unverified`，实际支出为零。模拟质检失败最多重试三次，策略名称仅作记录，每次仍生成同类测试卡；FFmpeg 或文件错误会直接停止。它只验证流程与文件产出，不能证明真实唇音、人脸一致性或真实 TTS 质量。面向 Codex 的轻量入口见 [`skills/avatarcast/SKILL.md`](skills/avatarcast/SKILL.md)。
+
+真实 API 路线仍是独立单段入口，需准备授权形象、锁定音频、供应商可访问的素材 URL、API Key 和针对该请求核实的实时价格，并在提交付费请求前获得明确授权；详见 [`docs/API_LIPSYNC.md`](docs/API_LIPSYNC.md)。
+
 ## 0. 先定 6 条设计原则（所有优化都从这里推导）
 
 1. **音频优先（Audio-first）**：声音不是事后修补。先定音色、情绪、语速、停顿，再用音频驱动画面。画面换模型，声音不许换。
