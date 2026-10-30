@@ -55,14 +55,14 @@ def _find_ffmpeg() -> str | None:
 def _check_media(path: Path, ffmpeg: str) -> dict:
     """Decode both streams and measure audio; this does not score lip sync."""
     decoded = subprocess.run(
-        [ffmpeg, "-nostdin", "-v", "error", "-i", str(path),
+        [ffmpeg, "-nostdin", "-v", "error", "-xerror", "-i", str(path),
          "-map", "0:v:0", "-map", "0:a:0", "-f", "null", "-"],
         capture_output=True, check=False,
     )
     if decoded.returncode:
         return {"decode": "fail", "audio": "unverified"}
     extracted = subprocess.run(
-        [ffmpeg, "-nostdin", "-v", "error", "-i", str(path),
+        [ffmpeg, "-nostdin", "-v", "error", "-xerror", "-i", str(path),
          "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
         capture_output=True, check=False,
     )

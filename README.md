@@ -51,7 +51,11 @@ dhp native start --image path/to/presenter.png --text "你好，这是数字人�
 dhp native resume --output-dir outputs/first-clip
 ```
 
-`resume` 默认查询一次；需要等待时可加 `--wait-seconds 60`。未完成时命令返回非零状态码，继续用同一目录查询，不要重新提交。完成后，`original.mp4` 是保留原生音轨的原片，`qa.json` 是机器检查报告。报告中的解码和非静音检查不能证明逐字准确、人物一致性或口型同步，这些仍需人工检查。看过和听过后可记录结果：
+`resume` 默认查询一次；需要等待时可加 `--wait-seconds 60`。未完成时命令返回非零状态码，继续用同一目录查询，不要重新提交。完成后，`original.mp4` 是保留原生音轨的原片，`qa.json` 是机器检查报告。报告中的解码和非静音检查不能证明逐字准确、人物一致性或口型同步，这些仍需人工检查。
+
+恢复查询使用最近的对话记录。如果太晚首次查询、原始请求已被大量新消息挤出，可能无法自动关联结果；此时请在 Grok Bot 中查看原任务，不要直接重发生成。
+
+看过和听过后可记录结果：
 
 ```powershell
 dhp native review --output-dir outputs/first-clip --decision accept --note "画面和声音已人工检查"
@@ -63,7 +67,7 @@ dhp native review --output-dir outputs/first-clip --decision accept --note "画�
 dhp native assemble --job-dir outputs/first-clip --job-dir outputs/second-clip --output-dir outputs/assembled
 ```
 
-拼接产出 `final.mp4`、`original.mp4`、`subtitles.srt` 和 `qa.json`。字幕按段长和文字估算，并非逐字语音对齐；须人工核对台词、字幕时间和画面，再判断口型、人物及声音跨段一致性。视频会重新编码原生音轨。跨任务自动缓存、锁定音轨和精确口型评分仍未实现。开发中曾通过 Grok Bot 生成一条约 10 秒中文短片，用户确认基本可用；新的命令行生成入口尚未经过真实生成验证。把同一条样片重复三次仅能验证本地拼接，不代表三条独立生成的效果通过。
+拼接产出 `final.mp4`、`original.mp4`、`subtitles.srt` 和 `qa.json`。成片会烧录“AI 数字人演绎”画面标识，发布描述栏仍需人工添加标识。字幕按段长和文字估算，并非逐字语音对齐；须人工核对台词、字幕时间和画面，再判断口型、人物及声音跨段一致性。视频会重新编码原生音轨。跨任务自动缓存、锁定音轨和精确口型评分仍未实现。开发中曾通过 Grok Bot 生成一条约 10 秒中文短片，用户确认基本可用；新的命令行生成入口尚未经过真实生成验证。把同一条样片重复三次仅能验证本地拼接，不代表三条独立生成的效果通过。
 
 ## 给其他人使用
 

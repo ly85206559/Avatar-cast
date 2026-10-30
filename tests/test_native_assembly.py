@@ -86,6 +86,8 @@ def test_assembly_preserves_both_audio_segments_pads_and_renders_estimated_capti
     assert qa["status"] == "assembled" and qa["quality_verdict"] == "unverified"
     assert qa["subtitle_timing"] == "estimated_from_segment_container_duration"
     assert qa["human_review"] == "not_reviewed" and qa["publication_approval"] == "not_granted"
+    assert qa["ai_label"] == "burned_in_video" and qa["ai_label_text"] == "AI 数字人演绎"
+    assert qa["description_label"] == "not_checked"
     assert qa["segment_count"] == 3 and qa["unique_source_count"] == 2
     assert qa["reused_source_video"] is True
     srt = (output / "subtitles.srt").read_text(encoding="utf-8")
@@ -113,6 +115,14 @@ def test_assembly_preserves_both_audio_segments_pads_and_renders_estimated_capti
     captioned = _frame(ffmpeg, output / "final.mp4", first_at, tmp_path / "captioned.png")
     delta = ImageChops.difference(first, captioned).crop((0, 920, 720, 1280)).convert("L")
     assert sum(delta.histogram()[41:]) > 100  # subtitles are visible in decoded pixels
+
+    # The independent disclosure stays visible at the top from start to end;
+    # compare with the unlabelled raw cut, not with a hardcoded font bitmap.
+    for index, at in enumerate((0.2, qa["output_duration_sec"] / 2, qa["output_duration_sec"] - 0.25)):
+        raw_frame = _frame(ffmpeg, output / "original.mp4", at, tmp_path / f"raw-label-{index}.png")
+        final_frame = _frame(ffmpeg, output / "final.mp4", at, tmp_path / f"final-label-{index}.png")
+        top_delta = ImageChops.difference(raw_frame, final_frame).crop((0, 0, 720, 100)).convert("L")
+        assert sum(top_delta.histogram()[41:]) > 100
 
 
 def test_rejects_missing_or_changed_inputs_before_creating_output(tmp_path):

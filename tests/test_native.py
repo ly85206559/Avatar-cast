@@ -1,5 +1,6 @@
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -218,3 +219,20 @@ def test_completed_job_requires_qa_report(spec, monkeypatch):
     (Path(spec["output_dir"]) / "qa.json").unlink()
     with pytest.raises(ValueError, match="missing a valid QA"):
         native.resume(spec["output_dir"], gateway)
+
+
+def test_media_decode_rejects_truncated_video(tmp_path):
+    ffmpeg = native._find_ffmpeg()
+    if not ffmpeg:
+        pytest.skip("FFmpeg is unavailable")
+    video = tmp_path / "valid.mp4"
+    subprocess.run([
+        ffmpeg, "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=128x128:rate=10",
+        "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000", "-t", "3",
+        "-c:v", "mpeg4", "-c:a", "aac", "-movflags", "+faststart", str(video),
+    ], check=True, capture_output=True)
+    assert native._check_media(video, ffmpeg)["decode"] == "pass"
+    data = video.read_bytes()
+    truncated = tmp_path / "truncated.mp4"
+    truncated.write_bytes(data[:len(data) * 7 // 10])
+    assert native._check_media(truncated, ffmpeg)["decode"] == "fail"

@@ -177,9 +177,27 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
                 cues.append(f"{cue_index}\n{_timestamp(offset)} --> {_timestamp(end)}\n" + "\n".join(group))
                 offset = end
         captions.write_text("\n\n".join(cues) + "\n", encoding="utf-8")
+        # Use an independent, full-duration ASS layer so the required label
+        # remains at the top while the speech captions stay at the bottom.
+        label = work / "ai-label.ass"
+        end_centiseconds = math.ceil((raw_duration + 1) * 100)
+        end = (f"{end_centiseconds // 360000}:{(end_centiseconds // 6000) % 60:02}:"
+               f"{(end_centiseconds // 100) % 60:02}.{end_centiseconds % 100:02}")
+        label.write_text(
+            "[Script Info]\nScriptType: v4.00+\nPlayResX: 720\nPlayResY: 1280\n"
+            "[V4+ Styles]\n"
+            "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,"
+            "Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,"
+            "Alignment,MarginL,MarginR,MarginV,Encoding\n"
+            "Style: Label,Microsoft YaHei,30,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,"
+            "-1,0,0,0,100,100,0,0,1,2,0,8,20,20,24,1\n"
+            "[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n"
+            f"Dialogue: 0,0:00:00.00,{end},Label,,0,0,0,,AI 数字人演绎\n",
+            encoding="utf-8",
+        )
         final = work / "final.mp4"
         _run([executable, "-nostdin", "-v", "error", "-i", str(raw),
-              "-vf", "subtitles=subtitles.srt:force_style='FontName=Microsoft YaHei,FontSize=9,Bold=1,Outline=1,MarginV=18'",
+              "-vf", "subtitles=subtitles.srt:force_style='FontName=Microsoft YaHei,FontSize=9,Bold=1,Outline=1,MarginV=18',subtitles=ai-label.ass",
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
               "-c:a", "copy", "-movflags", "+faststart", str(final)], cwd=work)
         # Final full decode verifies the produced streams, not speech accuracy.
@@ -197,14 +215,16 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
             "subtitle_timing": "estimated_from_segment_container_duration",
             "subtitle_review": "required", "speech_accuracy": "not_evaluated",
             "lip_sync": "not_evaluated", "identity_consistency": "not_evaluated",
-            "human_review": "not_reviewed", "publication_approval": "not_granted", "ai_label": "not_checked",
+            "human_review": "not_reviewed", "publication_approval": "not_granted",
+            "ai_label": "burned_in_video", "ai_label_text": "AI 数字人演绎",
+            "description_label": "not_checked",
             "native_audio": "preserved_content_reencoded_to_aac_48khz",
             "video_geometry": "720x1280_aspect_preserving_pad_30fps",
             "segments": [{"job_dir": item["job_dir"], "sha256": item["sha256"],
                           "duration_sec": item["duration_sec"], "text": item["text"]}
                          for item in inputs],
             "notice": "Subtitle cues are estimated from each segment duration, not word alignment; "
-                      "review speech, timing, visual captions, lip sync, and AI labeling before release. "
+                      "review speech, timing, visual captions, lip sync, and add AI labeling to the description before release. "
                       + ("Source video is reused; segment count does not prove independent generations."
                          if unique_sources < len(inputs) else ""),
         }
