@@ -18,6 +18,7 @@ dependencies = [
 # Real offline Chinese ASR (model itself is NOT bundled; see asr_vosk.py).
 asr = ["vosk"]
 test = ["pytest"]
+native = ["imageio-ffmpeg"]
 
 [project.scripts]
 dhp = "dhp.cli:main"

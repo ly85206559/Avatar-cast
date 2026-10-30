@@ -31,6 +31,10 @@ def main(argv: list[str] | None = None) -> int:
         from .demo import main as demo_main
 
         return demo_main(args_list[1:])
+    if args_list and args_list[0] == "native":
+        from .native import main as native_main
+
+        return native_main(args_list[1:])
     p = argparse.ArgumentParser(prog="dhp")
     p.add_argument("script", help="script.json path")
     p.add_argument("--brief", default="examples/demo-brief.json")

@@ -41,24 +41,27 @@ class VoskASRProvider:
                 "vosk-model-small-cn-0.22 directory (see module docstring).")
 
     def transcribe(self, audio_path: str) -> list[dict]:
-        """Return [{"word": str, "start": float, "end": float}, ...]."""
+        """Return timed words, retaining confidence when the recognizer supplies it."""
         try:
             from vosk import KaldiRecognizer, Model
         except ImportError as e:
             raise RuntimeError("vosk is not installed: pip install vosk") from e
         with tempfile.TemporaryDirectory() as td:
             wav = _convert_to_16k_mono_wav(audio_path, str(Path(td) / "in.wav"))
-            wf = wave.open(wav)
-            rec = KaldiRecognizer(Model(self.model_path), wf.getframerate())
-            rec.SetWords(True)
-            while True:
-                data = wf.readframes(4000)
-                if not data:
-                    break
-                rec.AcceptWaveform(data)
-            result = json.loads(rec.FinalResult())
-        return [{"word": w["word"], "start": float(w["start"]), "end": float(w["end"])}
-                for w in result.get("result", [])]
+            with wave.open(wav) as wf:
+                rec = KaldiRecognizer(Model(self.model_path), wf.getframerate())
+                rec.SetWords(True)
+                words = []
+                while True:
+                    data = wf.readframes(4000)
+                    if not data:
+                        break
+                    if rec.AcceptWaveform(data):
+                        words.extend(json.loads(rec.Result()).get("result", []))
+                words.extend(json.loads(rec.FinalResult()).get("result", []))
+        return [{"word": w["word"], "start": float(w["start"]), "end": float(w["end"]),
+                 **({"conf": float(w["conf"])} if "conf" in w else {})}
+                for w in words]
 
     def text(self, audio_path: str) -> str:
         return "".join(w["word"] for w in self.transcribe(audio_path))

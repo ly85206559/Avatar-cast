@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_demo_script_matches_shots():
-    script = json.loads((ROOT / "examples/demo-script.json").read_text())
+    script = json.loads((ROOT / "examples/demo-script.json").read_text(encoding="utf-8"))
     assert script, "demo script must not be empty"
     for seg in script:
         assert seg["shot"] in ("talking_head", "b_roll", "demo", "scene")
@@ -13,7 +13,7 @@ def test_demo_script_matches_shots():
 
 
 def test_demo_brief_persona_present():
-    brief = json.loads((ROOT / "examples/demo-brief.json").read_text())
+    brief = json.loads((ROOT / "examples/demo-brief.json").read_text(encoding="utf-8"))
     assert brief["persona_id"]
     assert brief["ratio"] in ("16:9", "9:16", "1:1")
 
