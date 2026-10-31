@@ -1,42 +1,38 @@
 ---
 name: avatarcast
-description: Run AvatarCast's offline rehearsal or an approved Grok Bot native talking-head clip, and inspect the result.
+description: Set up AvatarCast and create a presenter-led video from an authorized image and script, using the user's approved Grok Bot allowance.
 ---
 
 # AvatarCast
 
-AvatarCast is a Python pipeline with this thin Skill as an assistant-facing entry point. Use the repository and CLI; do not invent provider capability or pricing. Run from the repository root, with `src` on Python's import path, or install the project locally. The offline rehearsal and native video workflow have different inputs and evidence.
+Use the repository's Python CLI, from the repository root. The project-local Codex and Claude Code entries both point here. If Python 3.10+ is absent, help the user install it using the official instructions for their system. If project dependencies are missing, create a repository-local Python virtual environment and install `.[native]`; use that environment's Python for the commands below. Never claim the Skill itself provides a model, subscription, or credentials.
 
-## Native video: Grok Bot
+## Choose a route and check setup
 
-For an approved single short clip, use an authorized presenter image, the desired spoken text, a Grok Bot agent ID, the user's configured Grok Bot gateway, and FFmpeg (or the optional `imageio-ffmpeg` package). Native video generates the image and voice together; it does not preserve a supplied WAV or guarantee exact speech or lip alignment. The gateway is a third-party private interface, not an official stable API; account availability and billing depend on the user's service. On one account, the native CLI completed a real single clip accepted by the user and assembled three independently generated clips. The assembled result still requires human review, and reliability across accounts is unverified.
+The supported guided route is `grok-native`: each segment generates its own picture and Mandarin voice together at a requested 9:16 and 720p. It does not accept a locked recording or guarantee consistent voice across segments. WaveSpeed's audio-driven adapter is a separate, single-clip entry and has not been verified end to end; see `docs/API_LIPSYNC.md` if the user specifically needs locked audio. Do not offer an unimplemented provider as working.
 
-Install with `python -m pip install -e ".[native]"`. On Windows, with PowerShell 7 and the user signed in to Grok Bot, wake the remote computer and run `pwsh -NoProfile -File scripts/setup_grok_bot_windows.ps1` to attempt to import the gateway connection. Run `dhp native bots` to list IDs without generating media. The import uses the user's local application data and saves credentials in `~/.gbm/config.json`; it may need to be rerun after the remote computer or app changes. Other platforms need an existing working gateway configuration; setup is not verified across accounts or platforms. Never print or share the saved token. Before a real request, verify the subscription, allowance, and whether overage or extra charges are enabled; the command cannot enforce the provider's billing settings.
+Run `python -m dhp.cli make doctor`. For a real Grok Bot project also run `python -m dhp.cli make doctor --online`; this only reads gateway status and lists bots, without generating. On Windows, if the user has signed in to Grok Bot and the remote computer is awake, `pwsh -NoProfile -File scripts/setup_grok_bot_windows.ps1` can import the connection. It reads the local app's credential data and stores gateway credentials in the current user's `~/.gbm/config.json`; explain this before the import and never print the token. Other platforms need an existing working gateway configuration. The gateway is an unofficial, version-dependent interface and was validated on one account.
 
-Check the user's subscription, available allowance and any per-request charges. Start by showing the plan, which does not upload or generate:
+If FFmpeg or its `subtitles` filter or `libx264` encoder is missing, help install an FFmpeg build with those features using a suitable trusted source and add it to PATH, then rerun `doctor`. The Python-provided fallback may lack the subtitles filter. Install a Chinese font if the check reports one missing; if font status is unknown, verify captions are legible. Explain that the project includes its own gateway client, not the Grok Bot application, account, CLI or MCP. The user does not need to install `grok-bot-mcp` to use this route.
 
-```text
-dhp native start --image IMAGE --text TEXT --agent-id BOT_ID --output-dir OUTPUT --duration 10 --billing allowance
-```
+## Make a video
 
-Add `--confirm` only after the user explicitly approves this request and its billing terms. `allowance` records the user's intent to use existing account allowance; it does not technically guarantee the final bill. If the provider requires additional payment, stop for authorization. Never represent unknown cost or quota use as zero, and never infer approval for new generations from a previous sample or dry-run.
-
-After a submission, recover by running `dhp native resume --output-dir OUTPUT`. Resume only checks and downloads the existing result; do not automatically resubmit an uncertain request. Keep gateway tokens out of chat, source control and reports. The single-clip command saves a raw MP4 and a machine-check report; it does not automatically validate exact words or lip sync. Preserve the raw video and its native audio, inspect representative decoded frames and the audio, and record the actual dimensions, duration and human feedback. Record the user's decision using `dhp native review --output-dir OUTPUT --decision accept` or `--decision needs_changes`. Automated transcription can misread names; locate uncertain words for review instead of automatically triggering paid regeneration. Do not claim lip-sync or face metrics that were not measured. One accepted sample does not establish cross-segment quality or a 30-second benchmark.
-
-To assemble at least two completed native clips locally, use `dhp native assemble --job-dir FIRST --job-dir SECOND --output-dir NEW_OUTPUT`. It produces a re-encoded video and audio, estimated burned-in subtitles, an SRT and a QA report. It burns an AI digital-human performance label into the video; add and verify the label in the publication description separately. This requires FFmpeg with the `subtitles` filter and `libx264`, plus a suitable Chinese font. Subtitle timing is estimated from segment length and text, not aligned to speech; inspect captions, speech, lip sync and consistency before reporting or publishing. Repeating one clip tests assembly only; it does not establish quality across independent generations. The report leaves quality and publication approval unverified.
-
-The audio-driven WaveSpeed route is separate: use it when the user needs an already locked recording to drive lip motion. Follow `docs/API_LIPSYNC.md` for its required credentials, accessible inputs, live quote, and explicit cost confirmation; it does not currently prove a multi-segment end-to-end workflow.
-
-## Offline rehearsal
-
-Confirm that Python, FFmpeg, and ffprobe are available.
-
-Given a script JSON and brief JSON, run:
+Get an authorized presenter image, the script, and the desired output directory. Help draft a script when asked; save it as UTF-8 text if that avoids shell encoding problems. Produce a local plan first:
 
 ```text
-python -m dhp.cli SCRIPT --brief BRIEF --dry-run --output-dir OUTPUT --cache-dir CACHE
+python -m dhp.cli make plan --image IMAGE --script-file SCRIPT.txt --output-dir NEW_PROJECT
 ```
 
-The brief must set `duration_target_sec` to 30–60; the script must contain at least two segments. Use a new or empty output directory separate from the cache directory. To reuse cached segments, select a new output directory and keep the same cache directory. The existing example files demonstrate the input format. Inspect `qa.json`, the video, and the SRT before reporting the result. Report cache hits and simulated costs separately from actual spending.
+Run `python -m dhp.cli make show --project NEW_PROJECT` and present the exact segments, estimated lengths, route, image, and known or unknown costs. Retain the `plan_sha256` shown with that plan. Split points and timings are estimates; allow the user to review them. Check the actual account's subscription, allowance and on-demand/overage setting with the user or an available account view. The CLI cannot verify billing or enforce a spending cap. Unknown cost is not zero. Do not submit if the user requires a no-extra-charge guarantee that cannot be established.
 
-The dry-run uses synthetic tones and labeled test cards, with captions burned into the video and also saved as SRT. Its scores, retry failures, and prices are simulated. It does not generate speech, perform real lip sync, or establish real video quality. Never describe its output as a real digital-human video.
+Only after the user explicitly approves this exact multi-segment plan and its billing conditions, run:
+
+```text
+python -m dhp.cli make run --project NEW_PROJECT --plan-sha256 REVIEWED_PLAN_HASH --confirm-allowance
+```
+
+Use the hash from the plan the user actually reviewed, not a newly computed hash after approval. If the plan changed, show it and obtain approval again. If more than one bot exists, use `dhp native bots` and add `--agent-id`. On interruption or a pending result, use `python -m dhp.cli make resume --project NEW_PROJECT`: it checks existing submissions without resending them, then may start remaining segments covered by the original approval. If the plan or image changes after approval, make a new project and obtain fresh approval. Never delete a job or blindly resubmit an uncertain request.
+
+The result contains a subtitled video, SRT and QA report. Automatic captions use estimated segment timing, not speech alignment; a completed file is ready for human review, not proof of lip sync, identity, exact words, or cross-segment voice consistency. Inspect decoded frames, captions and audio; ask the user to review the result. AI labeling is burned into the edited video; a publication description still needs the label. Publishing is a separate user action.
+
+For a free synthetic rehearsal, follow the `--dry-run` example in `README.md`: it creates test cards and tones, not real speech or a digital human.

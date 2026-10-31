@@ -35,7 +35,14 @@ def main(argv: list[str] | None = None) -> int:
         from .native import main as native_main
 
         return native_main(args_list[1:])
-    p = argparse.ArgumentParser(prog="dhp")
+    if args_list and args_list[0] == "make":
+        from .make import main as make_main
+
+        return make_main(args_list[1:])
+    p = argparse.ArgumentParser(
+        prog="dhp", description="AvatarCast video tools",
+        epilog="Guided workflow: dhp make --help | Native clips: dhp native --help | Offline demo: dhp demo --help",
+    )
     p.add_argument("script", help="script.json path")
     p.add_argument("--brief", default="examples/demo-brief.json")
     p.add_argument("--dry-run", action="store_true", help="run an offline synthetic-media pipeline")

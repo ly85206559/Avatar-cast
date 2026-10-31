@@ -87,14 +87,14 @@ def _copy_exclusive(source: Path, destination: Path) -> os.stat_result:
 
 
 def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) -> dict:
-    """Produce an experimental subtitled cut from at least two completed jobs.
+    """Produce an experimental subtitled cut from completed native jobs.
 
     The input hashes are checked before rendering. Subtitle cues divide each
     measured container duration by text length, not actual speech boundaries.
     No speech, identity, lip-sync or human acceptance is inferred.
     """
-    if len(job_dirs) < 2:
-        raise ValueError("At least two completed native jobs are required.")
+    if not job_dirs:
+        raise ValueError("At least one completed native job is required.")
     output = Path(output_dir).expanduser().absolute()
     if os.path.lexists(output):
         raise ValueError("Choose an output directory that does not already exist.")

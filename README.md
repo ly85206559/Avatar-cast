@@ -8,6 +8,57 @@
 >
 > 许可证：MIT，见 `LICENSE`。贡献先看 `CONTRIBUTING.md`，第一条是标签纪律：代理分数不许说成真分数，演示占位不许说成唇形证据。
 
+## 让 Codex 或 Claude Code 帮你安装并做视频
+
+在有本地文件和命令执行权限的 Codex 或 Claude Code 中，可以把下面的话和自己的形象图片、台词交给助手：
+
+```text
+请克隆 https://github.com/ly85206559/Avatar-cast，阅读 README 和
+skills/avatarcast/SKILL.md，在项目自己的虚拟环境中安装并检查依赖，
+引导我用授权的形象和台词制作视频。先展示分段和费用条件，
+得到我的明确同意后再生成；中断时恢复已有任务，不要重复提交。
+```
+
+打开克隆后的项目时，Codex 可发现 `.agents/skills/avatarcast`，Claude Code 可发现 `.claude/skills/avatarcast`；两者均读取同一份项目 Skill。如果当前会话尚未发现它，直接让助手读取 `skills/avatarcast/SKILL.md`，或在打开项目后开始新会话。Skill 和 Python 内核都在仓库中，安装其中一份并不会自动提供账号或服务。
+
+**首次准备仍需要你参与**：登录自己的 Grok Bot、准备授权图片、核实订阅与按需费用，并在真实生成前确认。Windows 用户还可用下面的导入脚本连接已登录且已唤醒的 Grok Bot；其他平台的自动导入尚未验证。Grok Bot 使用非公开网关，版本变化可能导致连接失效。
+
+如果希望自己运行命令，在项目根目录安装 `python -m pip install -e ".[native]"`，然后执行：
+
+```powershell
+dhp make doctor                    # 只检查本机，不生成
+dhp make doctor --online           # 额外检查网关和 Bot，不生成
+dhp make plan --image presenter.png --script-file script.txt --output-dir outputs/my-video
+```
+
+`script.txt` 使用 UTF-8。计划会自动按标点和长度分段，但时长只是估计；当前路线请求普通话、竖屏和 720p。打开 `outputs/my-video/plan.json`，核对全部台词、段数和费用条件。程序不能核实供应商的账单设置，也不能保证不会出现额外收费。若无法确认费用符合你的要求，先不要提交。
+
+`doctor` 检查 FFmpeg 的字幕滤镜、编码器及可检测的中文字体。如果 `subtitles` 或 `libx264` 为 `false`，需要安装包含相应功能的 FFmpeg 并加入 PATH，然后重新检查；随 Python 安装的备用 FFmpeg 不一定包含字幕滤镜。字体状态为 `unknown` 时需要自行确认；为 `missing` 时先安装中文字体。Linux 可安装 Noto CJK 字体，Windows 通常可以使用系统中文字体。
+
+```powershell
+dhp make show --project outputs/my-video
+dhp make run --project outputs/my-video --plan-sha256 REVIEWED_PLAN_HASH --confirm-allowance
+dhp make resume --project outputs/my-video
+```
+
+先通过 `show` 查看完整计划，把其中的 `plan_sha256` 填到 `REVIEWED_PLAN_HASH`。`--confirm-allowance` 表示你已审核并同意**这份计划中的所有片段**及账号的计费条件。如果确认前计划发生变化，需要重新查看并确认。只有一个 Bot 时自动选择；有多个时加 `--agent-id`，可用 `dhp native bots` 查看。`resume` 会查询已有任务，不会重发状态不明的请求；它也可能继续提交同一份已批准计划中尚未开始的片段。批准后改变计划或图片，需要创建新项目并重新确认。程序会拒绝同时运行同一项目。
+
+完成后，`result/final.mp4` 是供人工检查的视频，旁边有 `subtitles.srt` 和 `qa.json`。字幕时间按段长估算；口型、逐字准确性、跨段声音及人物一致性仍需人工检查。视频内已添加 AI 标识，发布时还需在描述栏添加标识。此前实测过单段和三段真实生成，但新的一键项目入口尚未进行真实付费请求验证。
+
+当前项目入口只自动运行 Grok 原生路线。WaveSpeed 音频驱动仍是独立的单段适配，尚未完成真实端到端验证；本地唇形模型仍未实现。不能通过改示例 YAML 就切换所有阶段的模型。
+
+### 费用和替换能力
+
+| 环节 | 可能的费用 | 目前能否替换 |
+| --- | --- | --- |
+| Codex 或 Claude Code 协助安装、写文案和操作 | 按助手账号或 API 的实际计费规则 | 用户选择助手；项目提供两种项目内 Skill 入口 |
+| 形象和文案 | 用户自备时不由本项目收取生成费；另用生成服务可能收费 | 可提供自己的授权图片和台词 |
+| Grok 生成画面与声音 | 订阅、额度或超额费用由账号决定；每段的金额和额度消耗目前未知 | 引导式入口目前固定 Grok 原生路线；要接入其他服务需开发并验证适配器 |
+| WaveSpeed 音频驱动 | 需单独核实账号、价格及可能的录音/TTS 费用 | 有独立的单段接口，但尚未完成真实端到端验证，不能在 `make` 中直接切换 |
+| 本机拼接、字幕和测试 | 本项目不收取服务费；使用本机计算资源 | 使用 FFmpeg；字幕按估计时间生成，结果须人工检查 |
+
+项目内置的是访问 Grok Bot 网关的 Python 客户端和 `dhp` 命令，不包含 Grok Bot 桌面应用、账号或它的 CLI/MCP。使用本项目的原生路线不要求另外安装 `grok-bot-mcp`；仍需用户自己的 Grok Bot 和可用网关。供应商的费用和额度可能变化，计划中的未知值不等于零。
+
 ## 快速上手（5 分钟，不花钱）
 
 ```bash
@@ -113,7 +164,7 @@ python -m dhp.cli examples/demo-script.json --brief examples/demo-brief.json --d
 
 1. **明确音频来源**：音频驱动路线先锁定音频再生成画面；原生视音频路线同时生成画面和声音，并记录其来源。两种路线使用不同的缓存输入和验收条件。
 2. **契约优先（Contract-first）**：每个环节只认 JSON，不认口头约定。环节可替换，契约不许偷偷改。
-3. **模型可替换（Provider-agnostic）**：任何一个生成器、TTS、抠像、评分器，都只是实现某个接口。换供应商 = 换配置，不是重写流水线。
+3. **预留模型扩展点**：生成器、TTS、唇形和评分器有接口；当前 Grok 路线固定，替换未接入的供应商仍需开发适配器。示例 YAML 尚未接入引导式命令。
 4. **质量可检查（Measurable）**：记录实际可测的音画、转写、成本及人工结果；未测量的指标明确标记，低置信专名交人工复核。
 5. **产物可追踪（Traceable）**：记录脚本、主播、模型及参数；能安全复用的已完成产物命中缓存。生成模型本身可能非确定性，重生成不保证画面相同。
 6. **合规先行（Consent-first）**：只用本人或已授权的声音和形象；成片必须带 AI 演绎标识；不做名人克隆、不做变声冒充。

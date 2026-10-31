@@ -1,6 +1,6 @@
-"""Provider registry. Default route is API-first; local stays pluggable.
+"""Programmatic lip-sync provider selector. Local is an unimplemented extension.
 
-Switching routes is a config change, not a code rewrite:
+The example YAML is not loaded by the guided native workflow:
     provider = get_lipsync_provider("wavespeed-api")   # default
     provider = get_lipsync_provider("local")           # extension point
 """

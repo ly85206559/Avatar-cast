@@ -67,6 +67,18 @@ def _audio_strengths(ffmpeg: str, video: Path, at: float) -> tuple[float, float]
     return strength(440), strength(880)
 
 
+def test_single_native_clip_gets_captions_and_ai_label(tmp_path, ffmpeg):
+    video = tmp_path / "source.mp4"
+    _make_video(ffmpeg, video, "blue", "90x160", 440)
+    job = _job(tmp_path, "job", video.read_bytes(), text="单段字幕测试。")
+    output = tmp_path / "assembled"
+    report = assemble([str(job)], str(output), ffmpeg=ffmpeg)
+    assert report["segment_count"] == 1
+    assert report["ai_label"] == "burned_in_video"
+    assert (output / "final.mp4").is_file()
+    assert "单段字幕测试" in (output / "subtitles.srt").read_text(encoding="utf-8")
+
+
 def test_assembly_preserves_both_audio_segments_pads_and_renders_estimated_captions(tmp_path, ffmpeg):
     sources = []
     for name, color, size, freq, text in [

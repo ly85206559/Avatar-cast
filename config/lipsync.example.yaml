@@ -1,3 +1,4 @@
+# Example values for a developer integration; the guided CLI does not load this file.
 # Copy to lipsync.yaml and fill in. Never commit a real API key here.
 # API key comes from the environment: export WAVESPEED_API_KEY=...
 provider: wavespeed-api        # default. Switch to "local" only when that adapter exists.
