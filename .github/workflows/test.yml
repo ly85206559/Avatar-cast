@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and Chinese fonts
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fontconfig fonts-noto-cjk
       - name: Install package and test deps
         run: pip install -e ".[test]"
       - name: Run tests

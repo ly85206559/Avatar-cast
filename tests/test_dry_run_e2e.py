@@ -177,6 +177,6 @@ def test_export_has_visible_cards_and_chinese_captions(tmp_path):
         for start, end in ((0, 120), (120, 180)):
             band = frame[start * 320 * 3:end * 320 * 3]
             bright = sum(min(band[i:i + 3]) > 180 for i in range(0, len(band), 3))
-            assert bright > 80, "missing visible card or burned-in caption"
+            assert bright > 80, f"missing visible card or burned-in caption in rows {start}:{end}; bright pixels={bright}"
         frames.append(frame)
     assert len(set(frames)) == 3, "all segments still look like the same blank frame"
