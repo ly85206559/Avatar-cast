@@ -67,7 +67,7 @@ dhp native review --output-dir outputs/first-clip --decision accept --note "画�
 dhp native assemble --job-dir outputs/first-clip --job-dir outputs/second-clip --output-dir outputs/assembled
 ```
 
-拼接产出 `final.mp4`、`original.mp4`、`subtitles.srt` 和 `qa.json`。成片会烧录“AI 数字人演绎”画面标识，发布描述栏仍需人工添加标识。字幕按段长和文字估算，并非逐字语音对齐；须人工核对台词、字幕时间和画面，再判断口型、人物及声音跨段一致性。视频会重新编码原生音轨。跨任务自动缓存、锁定音轨和精确口型评分仍未实现。开发中曾通过 Grok Bot 生成一条约 10 秒中文短片，用户确认基本可用；新的命令行生成入口尚未经过真实生成验证。把同一条样片重复三次仅能验证本地拼接，不代表三条独立生成的效果通过。
+拼接产出 `final.mp4`、`original.mp4`、`subtitles.srt` 和 `qa.json`。成片会烧录“AI 数字人演绎”画面标识，发布描述栏仍需人工添加标识。字幕按段长和文字估算，并非逐字语音对齐；须人工核对台词、字幕时间和画面，再判断口型、人物及声音跨段一致性。视频会重新编码原生音轨。跨任务自动缓存、锁定音轨和精确口型评分仍未实现。原生 CLI 已在一个账号上完成一次约 10 秒真实生成、下载和用户验收；其他账号和多次独立生成的稳定性仍未验证。把同一条样片重复三次仅能验证本地拼接，不代表三条独立生成的效果通过。
 
 ## 给其他人使用
 
