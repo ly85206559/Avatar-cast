@@ -8,6 +8,8 @@
 >
 > 许可证：MIT，见 `LICENSE`。贡献先看 `CONTRIBUTING.md`，第一条是标签纪律：代理分数不许说成真分数，演示占位不许说成唇形证据。
 
+设计参考：[Berryxia / digital-human-koubo](https://github.com/andyhuo520/digital-human-koubo)。具体来源见[参考与致谢](#参考与致谢)。
+
 ## 一张照片，一句话
 
 在有本地文件和终端权限的 Codex 或 Claude Code 中，复制下面这一句并附上授权照片，把「」内换成你想做的内容：
@@ -175,8 +177,12 @@ Copy-Item -Recurse -Path 'skills/avatarcast' -Destination (Join-Path $codexSkill
 项目代码采用 MIT 许可证；第三方服务的账号、支持范围、素材处理和计费按相应服务的当次条款执行。
 
 下面是完整设计思路，读完快速上手再往下看。
->
-> 它不是对某一个开源 skill 的复刻。参考的只是通用方法论：用 JSON 做环节间契约、用分段生成拼长视频、用自动指标代替人工看帧。组件参数、提示词模板、包装规则请用你自己的实测数据重新量，不要直接搬运别人的。
+
+## 参考与致谢
+
+感谢 Berryxia（[@andyhuo520](https://github.com/andyhuo520)）开源的 [digital-human-koubo](https://github.com/andyhuo520/digital-human-koubo)。AvatarCast 在自然语言驱动口播制作、按内容选择包装风格，以及将成熟视频呈现方式沉淀为可组合组件的设计上，参考了该项目公开的工作流与组件方案。
+
+AvatarCast 当前采用 Python 流水线＋轻量 Skill，以 Grok Bot 原生生成、本地 FFmpeg 包装、保守的 Vosk 语音匹配、费用确认和原任务恢复为实现重点。具体参考点、源码对照与复用边界见[呈现范式与组件研究](docs/PRESENTATION_PARADIGMS.md)；能力与效果以本仓库的实现和实测记录为准。
 
 ## 离线多段流程演练
 
