@@ -1,0 +1,8 @@
+{
+  "timing": "estimated",
+  "components": [
+    {"use": "TextCard", "at": 0, "until": 2.5, "title": "先做一个小小的尝试"},
+    {"use": "KeywordEmphasis", "at": 2.5, "until": 6.2, "text": "一步一步，把流程走通"},
+    {"use": "TextCard", "at": 6.2, "until": 10, "title": "先看见进步，再慢慢完善"}
+  ]
+}

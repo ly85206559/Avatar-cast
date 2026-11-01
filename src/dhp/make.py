@@ -329,14 +329,14 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
 
 
 def restyle_project(project: str, style: str, title: str | None = None,
-                    output_dir: str | None = None) -> dict:
+                    output_dir: str | None = None, *, pack: dict | None = None) -> dict:
     """Render completed originals locally; never connect to a generation service."""
     from .native_assembly import assemble
 
     root = Path(project).expanduser().resolve()
     plan, _ = _load_plan(root)
     presentation = packaging.prepare(style, title if title is not None else
-                                     plan.get("presentation", {}).get("title", ""), plan.get("request", ""))
+                                     plan.get("presentation", {}).get("title", ""), plan.get("request", ""), pack)
     jobs = [root / f"segment-{index:03}" for index in range(1, len(plan["segments"]) + 1)]
     for directory, text in zip(jobs, plan["segments"]):
         job = _read_json(directory / "job.json")
@@ -371,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     restyle.add_argument("--style", choices=["auto", *packaging.STYLES], required=True)
     restyle.add_argument("--title")
     restyle.add_argument("--output-dir")
+    restyle.add_argument("--pack-file", help="local component timeline JSON; never generates media")
     for name in ("run", "resume"):
         run = commands.add_parser(name, help="run the approved plan" if name == "run" else "continue the approved plan")
         run.add_argument("--project", required=True)
@@ -397,7 +398,8 @@ def main(argv: list[str] | None = None) -> int:
             plan, digest = _load_plan(root)
             result = {**plan, "status": "plan_only", "project": str(root), "plan_sha256": digest}
         elif args.command == "restyle":
-            result = restyle_project(args.project, args.style, args.title, args.output_dir)
+            result = restyle_project(args.project, args.style, args.title, args.output_dir,
+                                     pack=_read_json(Path(args.pack_file)) if args.pack_file else None)
         else:
             result = run_project(args.project, confirm=getattr(args, "confirm_allowance", False),
                                  plan_sha256=getattr(args, "plan_sha256", None),

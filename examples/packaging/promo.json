@@ -1,0 +1,10 @@
+{
+  "timing": "estimated",
+  "components": [
+    {"use": "TextCard", "at": 0, "until": 2, "title": "一张照片，开始口播"},
+    {"use": "MetricCard", "at": 2, "until": 4.7, "value": "3", "unit": "项", "label": "先看画面、声音与字幕", "source": "本条原片台词"},
+    {"use": "HostReframe", "at": 4.7, "until": 7.2, "scale": 1.08},
+    {"use": "ComparePanel", "at": 4.7, "until": 7.2, "dimension": "同一原片，增加呈现层次", "left": {"title": "原片", "text": "保留画面和原声"}, "right": {"title": "本地包装", "text": "加字幕、重点卡片"}},
+    {"use": "RecapBoard", "at": 7.2, "until": 10, "title": "从想法到口播", "items": ["准备授权照片", "说清制作意图", "生成后本地包装"]}
+  ]
+}

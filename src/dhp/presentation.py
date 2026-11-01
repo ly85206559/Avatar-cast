@@ -7,15 +7,18 @@ import re
 import textwrap
 from pathlib import Path
 
+from . import packaging_components
+
 
 STYLES = {
     "clean": {"label": "简洁口播", "accent": "FFFFFF", "panel": "202020", "y": 110},
     "promo": {"label": "重点推荐", "accent": "00BFFF", "panel": "181818", "y": 970},
     "explainer": {"label": "知识讲解", "accent": "FFCC66", "panel": "482510", "y": 110},
+    "warm": {"label": "温暖陪伴", "accent": "C9E8FF", "panel": "293140", "y": 110},
 }
 
 
-def prepare(style: str = "auto", title: str = "", request: str = "") -> dict:
+def prepare(style: str = "auto", title: str = "", request: str = "", pack: dict | None = None) -> dict:
     if not isinstance(style, str) or not isinstance(title, str) or not isinstance(request, str):
         raise ValueError("Presentation title and request must be text.")
     if style == "auto":
@@ -23,14 +26,17 @@ def prepare(style: str = "auto", title: str = "", request: str = "") -> dict:
             style = "promo"
         elif re.search(r"讲解|科普|教程|知识|解释|教学|explain|tutorial|teach", request, re.I):
             style = "explainer"
+        elif re.search(r"安慰|陪伴|情感|共鸣|鼓励|empathy", request, re.I):
+            style = "warm"
         else:
             style = "clean"
     if style not in STYLES:
-        raise ValueError("Style must be auto, clean, promo, or explainer.")
+        raise ValueError("Style must be auto, clean, promo, explainer, or warm.")
     title = " ".join(title.split())
     if len(title) > 32:
         raise ValueError("Use a short video title of at most 32 characters.")
-    return {"style": style, "title": title}
+    return {"style": style, "title": title,
+            **({"pack": packaging_components.validate(pack)} if pack is not None else {})}
 
 
 def write_overlay(path: Path, duration: float, presentation: dict) -> None:
@@ -51,7 +57,7 @@ def write_overlay(path: Path, duration: float, presentation: dict) -> None:
     )
     events = [f"Dialogue: 2,0:00:00.00,{end},Label,,0,0,0,,AI 数字人演绎"]
     title = presentation["title"]
-    if title:
+    if title and "pack" not in presentation:
         # User text is data, never an ASS override or drawing command.
         safe = title.translate(str.maketrans({"\\": "＼", "{": "｛", "}": "｝"}))
         lines = textwrap.wrap(safe, width=16, break_long_words=True, break_on_hyphens=False)
@@ -67,7 +73,11 @@ def write_overlay(path: Path, duration: float, presentation: dict) -> None:
             events.append(f"Dialogue: 1,0:00:00.00,{end},Title,,0,0,0,,{stripe}")
         caption = rf"{{\an5\pos(360,{y - 16 + height // 2})\bord2\1c&H{preset['accent']}&\fad(150,0)}}" + text
         events.append(f"Dialogue: 1,0:00:00.00,{end},Title,,0,0,0,,{caption}")
-    path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
+    contents = header + "\n".join(events) + "\n"
+    if "pack" in presentation:
+        contents += packaging_components.ass_events(presentation["pack"], duration, preset["accent"],
+                                                    warm=presentation["style"] == "warm")
+    path.write_text(contents, encoding="utf-8")
 
 
 def subtitle_filter(presentation: dict) -> str:

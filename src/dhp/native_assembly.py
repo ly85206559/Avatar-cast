@@ -14,6 +14,7 @@ import textwrap
 from pathlib import Path
 
 from . import presentation as packaging
+from . import packaging_components
 
 
 def _sha256(path: Path) -> str:
@@ -114,6 +115,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         raise ValueError("At least one completed native job is required.")
     if presentation is not None:
         presentation = packaging.prepare(**presentation)
+    pack = presentation.get("pack") if presentation else None
+    trim_tail = bool(presentation) and pack is None
     output = Path(output_dir).expanduser().absolute()
     if os.path.lexists(output):
         raise ValueError("Choose an output directory that does not already exist.")
@@ -145,7 +148,10 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
     for item in inputs:
         measured = _duration(item["video"], executable)
         item["source_duration_sec"] = measured
-        item["duration_sec"] = _tail_duration(item["video"], measured, executable) if presentation else measured
+        item["duration_sec"] = _tail_duration(item["video"], measured, executable) if trim_tail else measured
+
+    if pack is not None:
+        packaging_components.validate(pack, sum(item["duration_sec"] for item in inputs))
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.mkdir(exist_ok=False)
@@ -161,8 +167,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         command = [executable, "-nostdin", "-v", "error"]
         for index, item in enumerate(inputs):
             command += ["-i", str(item["video"])]
-            video_trim = f"trim=duration={item['duration_sec']:.5f}," if presentation else ""
-            audio_trim = f"apad,atrim=duration={item['duration_sec']:.5f}," if presentation else ""
+            video_trim = f"trim=duration={item['duration_sec']:.5f}," if trim_tail else ""
+            audio_trim = f"apad,atrim=duration={item['duration_sec']:.5f}," if trim_tail else ""
             filters.append(f"[{index}:v:0]{video_trim}setpts=PTS-STARTPTS,{scale}[v{index}]")
             filters.append(f"[{index}:a:0]{audio_trim}asetpts=PTS-STARTPTS,aresample=48000,"
                            f"aformat=sample_fmts=fltp:channel_layouts=stereo[a{index}]")
@@ -223,8 +229,9 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             packaging.write_overlay(label, raw_duration, presentation)
             caption_filter = packaging.subtitle_filter(presentation)
         final = work / "final.mp4"
+        reframe = packaging_components.reframe_filter(pack) if pack else ""
         _run([executable, "-nostdin", "-v", "error", "-i", str(raw),
-              "-vf", caption_filter,
+              "-vf", reframe + caption_filter,
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
               "-c:a", "copy", "-movflags", "+faststart", str(final)], cwd=work)
         # Final full decode verifies the produced streams, not speech accuracy.
@@ -239,7 +246,10 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             "raw_video_sha256": _sha256(raw), "video_sha256": _sha256(final),
             "output_duration_sec": final_duration,
             "presentation": presentation,
-            "tail_trim": "conservative_near_silence_detection" if presentation else "disabled",
+            "tail_trim": "conservative_near_silence_detection" if trim_tail else "disabled",
+            "generation_requests": 0,
+            "component_timing": pack["timing"] if pack else "not_used",
+            "rendered_components": [item["use"] for item in pack["components"]] if pack else [],
             "unique_source_count": unique_sources, "reused_source_video": unique_sources < len(inputs),
             "subtitle_timing": "estimated_from_segment_container_duration",
             "subtitle_review": "required", "speech_accuracy": "not_evaluated",

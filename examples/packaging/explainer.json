@@ -1,0 +1,8 @@
+{
+  "timing": "estimated",
+  "components": [
+    {"use": "TextCard", "at": 0, "until": 2, "title": "口播先检查什么？"},
+    {"use": "EvidenceFocus", "at": 2, "until": 6, "claim": "先验证，再继续", "evidence": "我们先验证画面、声音和字幕是否同步。", "source": "本条原片台词摘录"},
+    {"use": "StepProgress", "at": 6, "until": 10, "steps": ["看画面", "听声音", "核对字幕"], "step_times": [6, 7.3, 8.6]}
+  ]
+}

@@ -21,6 +21,7 @@
 | 普通介绍、日常分享 | 简洁口播：简洁标题、清晰字幕 |
 | 产品推荐、推广 | 重点推荐：暖色标题卡、暖色字幕 |
 | 科普、知识、教程 | 知识讲解：蓝色标题卡、清晰字幕 |
+| 情感、安慰、鼓励 | 温暖陪伴：柔和色彩、较慢文字淡入 |
 
 生成后直接说“换成知识讲解风格”或“标题改成……”，助手会复用已有原片在本机重新包装，不再次请求生成服务。原片保留，新的包装另存一份。字幕仍按段长估算；包装流程只保守裁去长段尾部近静音，并不能证明语音或口型准确。
 
@@ -51,9 +52,11 @@ dhp make doctor --online           # 额外检查网关和 Bot，不生成
 dhp make plan --image presenter.png --script-file script.txt --output-dir outputs/my-video
 ```
 
-助手也可准备类似 [quick-brief.json](examples/quick-brief.json) 的内容，然后运行 `dhp make plan --image presenter.png --brief-file brief.json`。`request` 是制作意图，`script` 是助手拟好的实际台词，`title` 是标题，`style` 可为 `auto/clean/promo/explainer`。命令行本身不会调用额外语言模型来写稿。省略输出路径时自动在 `outputs/` 下创建新项目。
+助手也可准备类似 [quick-brief.json](examples/quick-brief.json) 的内容，然后运行 `dhp make plan --image presenter.png --brief-file brief.json`。`request` 是制作意图，`script` 是助手拟好的实际台词，`title` 是标题，`style` 可为 `auto/clean/promo/explainer/warm`。命令行本身不会调用额外语言模型来写稿。省略输出路径时自动在 `outputs/` 下创建新项目。
 
 换包装：`dhp make restyle --project outputs/my-video --style promo --title "新的标题"`。此命令只使用已完成的原片，无法替未完成的片段发起生成。
+
+已有原片也可使用 8 个基础组件：文字卡、关键词、数字卡、文字证据聚焦、文字对比、步骤推进、主播景别、复盘板。让助手根据原片准备时间线，再用 `dhp make restyle --project outputs/my-video --style explainer --pack-file pack.json` 本地重剪。组件使用原片秒数，显式时间线会保留完整原片长度；当前没有自动语音对齐。参数与三种对照样例见[本地组件包装](docs/LOCAL_PACKAGING.md)。
 
 `script.txt` 使用 UTF-8。计划会自动按标点和长度分段，但时长只是估计；当前路线请求普通话、竖屏和 720p。打开 `outputs/my-video/plan.json`，核对全部台词、段数和费用条件。程序不能核实供应商的账单设置，也不能保证不会出现额外收费。若无法确认费用符合你的要求，先不要提交。
 
