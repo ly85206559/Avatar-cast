@@ -1,6 +1,6 @@
 ---
 name: avatarcast
-description: Create a styled talking-head video from an authorized photo and a one-sentence request, or restyle a completed AvatarCast video locally.
+description: Install and use AvatarCast to make a finished talking-head video from a photo and one sentence, including billing confirmation and local packaging; restyle completed clips locally.
 ---
 
 Read `../../../skills/avatarcast/SKILL.md` relative to this file and follow it from the repository root.
