@@ -21,11 +21,12 @@ skills/avatarcast/SKILL.md，在项目自己的虚拟环境中安装并检查依
 
 打开克隆后的项目时，Codex 可发现 `.agents/skills/avatarcast`，Claude Code 可发现 `.claude/skills/avatarcast`；两者均读取同一份项目 Skill。如果当前会话尚未发现它，直接让助手读取 `skills/avatarcast/SKILL.md`，或在打开项目后开始新会话。Skill 和 Python 内核都在仓库中，安装其中一份并不会自动提供账号或服务。
 
-**首次准备仍需要你参与**：登录自己的 Grok Bot、准备授权图片、核实订阅与按需费用，并在真实生成前确认。Windows 用户还可用下面的导入脚本连接已登录且已唤醒的 Grok Bot；其他平台的自动导入尚未验证。Grok Bot 使用非公开网关，版本变化可能导致连接失效。
+**首次准备仍需要你参与**：登录自己的 Grok Bot、准备授权图片、核实订阅与按需费用，并在真实生成前确认。Windows 用户可用下面的脚本导入网关；macOS / Linux 用户参见[连接指南](docs/GROK_SETUP_UNIX.md)。Unix 脚本使用 CLI 的浏览器登录凭据，Linux 模拟测试已通过，但 macOS 和 Unix 平台的真实账号连接尚未验证。Grok Bot 使用非公开网关，版本变化可能导致连接失效。
 
 如果希望自己运行命令，在项目根目录安装 `python -m pip install -e ".[native]"`，然后执行：
 
 ```powershell
+$env:PYTHONUTF8 = '1'              # PowerShell 中让 Python 按 UTF-8 输出中文
 dhp make doctor                    # 只检查本机，不生成
 dhp make doctor --online           # 额外检查网关和 Bot，不生成
 dhp make plan --image presenter.png --script-file script.txt --output-dir outputs/my-video
@@ -43,7 +44,7 @@ dhp make resume --project outputs/my-video
 
 先通过 `show` 查看完整计划，把其中的 `plan_sha256` 填到 `REVIEWED_PLAN_HASH`。`--confirm-allowance` 表示你已审核并同意**这份计划中的所有片段**及账号的计费条件。如果确认前计划发生变化，需要重新查看并确认。只有一个 Bot 时自动选择；有多个时加 `--agent-id`，可用 `dhp native bots` 查看。`resume` 会查询已有任务，不会重发状态不明的请求；它也可能继续提交同一份已批准计划中尚未开始的片段。批准后改变计划或图片，需要创建新项目并重新确认。程序会拒绝同时运行同一项目。
 
-完成后，`result/final.mp4` 是供人工检查的视频，旁边有 `subtitles.srt` 和 `qa.json`。字幕时间按段长估算；口型、逐字准确性、跨段声音及人物一致性仍需人工检查。视频内已添加 AI 标识，发布时还需在描述栏添加标识。此前实测过单段和三段真实生成，但新的一键项目入口尚未进行真实付费请求验证。
+完成后，`result/final.mp4` 是供人工检查的视频，旁边有 `subtitles.srt` 和 `qa.json`。字幕时间按段长估算；口型、逐字准确性、跨段声音及人物一致性仍需人工检查。视频内已添加 AI 标识，发布时还需在描述栏添加标识。新项目入口已在一个 Windows 账号上实际提交并恢复一段成片；多段项目入口和其他账号仍待真实验证。
 
 当前项目入口只自动运行 Grok 原生路线。WaveSpeed 音频驱动仍是独立的单段适配，尚未完成真实端到端验证；本地唇形模型仍未实现。不能通过改示例 YAML 就切换所有阶段的模型。
 
@@ -57,7 +58,7 @@ dhp make resume --project outputs/my-video
 | WaveSpeed 音频驱动 | 需单独核实账号、价格及可能的录音/TTS 费用 | 有独立的单段接口，但尚未完成真实端到端验证，不能在 `make` 中直接切换 |
 | 本机拼接、字幕和测试 | 本项目不收取服务费；使用本机计算资源 | 使用 FFmpeg；字幕按估计时间生成，结果须人工检查 |
 
-项目内置的是访问 Grok Bot 网关的 Python 客户端和 `dhp` 命令，不包含 Grok Bot 桌面应用、账号或它的 CLI/MCP。使用本项目的原生路线不要求另外安装 `grok-bot-mcp`；仍需用户自己的 Grok Bot 和可用网关。供应商的费用和额度可能变化，计划中的未知值不等于零。
+项目内置的是访问 Grok Bot 网关的 Python 客户端和 `dhp` 命令，不包含 Grok Bot 桌面应用、账号或它的 CLI/MCP，不需要运行 MCP 服务。macOS / Linux 的便捷导入方法需要第三方 `grok-bot` CLI 登录；如果已有可用网关配置，也可直接使用。供应商的费用和额度可能变化，计划中的未知值不等于零。
 
 ## 快速上手（5 分钟，不花钱）
 
@@ -74,7 +75,7 @@ dhp demo --out outputs/demo          # 离线演示：合成色块 + 正弦音�
 
 适合希望先用一张授权形象和一段台词尝试短口播的人。Grok Bot 会调用其可用的视频生成工具，画面与语音同时生成；实际对白和口型仍需要检查，尤其是专名、数字和低置信识别结果。
 
-准备：Python 3.10+、可运行的 FFmpeg、自己的 Grok Bot 账号和可用额度、自己的或已获授权的形象图片及台词。原生短片入口不要求 ffprobe；下面的离线多段演练仍需要 ffprobe。Windows 用户可以使用下面的脚本尝试导入本机 Grok Bot 网关配置。网关使用第三方私有接口，可能随 Grok Bot 版本或远程电脑状态变化，尚未验证所有账号和平台。
+准备：Python 3.10+、可运行的 FFmpeg、自己的 Grok Bot 账号和可用额度、自己的或已获授权的形象图片及台词。原生短片入口不要求 ffprobe；下面的离线多段演练仍需要 ffprobe。Windows 用户可以使用下面的脚本尝试导入本机 Grok Bot 网关配置；macOS 和 Linux 参见[连接指南](docs/GROK_SETUP_UNIX.md)。网关使用第三方私有接口，可能随 Grok Bot 版本或远程电脑状态变化，尚未验证所有账号和平台。
 
 网关配置文件包含明文令牌，应限制为本机当前用户读取，不要共享该文件。
 
@@ -86,7 +87,7 @@ pwsh -NoProfile -File scripts/setup_grok_bot_windows.ps1
 dhp native bots
 ```
 
-`.[native]` 包含备用 FFmpeg；如需多段烧录字幕，还需要带 `subtitles` 滤镜和 `libx264` 编码器的 FFmpeg，以及可用的中文字体。脚本读取已登录的本机应用数据，为当前用户写入 `~/.gbm/config.json`；远程电脑未运行时先唤醒，再重新运行脚本。连接可能失效，可重新导入。其他平台需要自行提供可工作的网关配置；也可通过 `--gateway-config` 指定配置路径。`dhp native bots` 显示可用 Bot 的 ID，复制其中一个作为下面的 `BOT_ID`；它只查询，不生成视频。
+`.[native]` 包含备用 FFmpeg；如需多段烧录字幕，还需要带 `subtitles` 滤镜和 `libx264` 编码器的 FFmpeg，以及可用的中文字体。Windows 脚本读取已登录的本机应用数据，为当前用户写入 `~/.gbm/config.json`；远程电脑未运行时先唤醒，再重新运行脚本。连接可能失效，可重新导入。也可通过 `--gateway-config` 指定配置路径。`dhp native bots` 显示可用 Bot 的 ID，复制其中一个作为下面的 `BOT_ID`；它只查询，不生成视频。
 
 先检查当前账号的订阅、额度、是否启用超额或额外付费，以及本次可能费用，再预览计划：
 

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import subprocess
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -176,6 +177,55 @@ def test_finished_bot_response_without_video_requests_attention(spec, monkeypatc
     assert recovered["status"] == "needs_attention"
     assert recovered["last_reply"] == "Please confirm the provider charge."
     assert len(gateway.sent) == 1
+
+
+def test_running_bot_clears_transient_attention_without_resending(spec, monkeypatch):
+    monkeypatch.setattr(native, "_find_ffmpeg", lambda: "ffmpeg")
+    gateway = FakeGateway()
+    job = native.start(spec, gateway)
+    gateway.entries = [
+        {"kind": "message", "clientNonce": job["nonce"], "requestId": "request-1"},
+        {"kind": "send-message", "requestId": "request-1",
+         "message": {"type": "text", "content": "Starting the requested video."}},
+    ]
+    assert native.resume(spec["output_dir"], gateway)["status"] == "needs_attention"
+    gateway.list_agents = lambda: [{"id": "bot", "isRunningTurn": True}]
+    resumed = native.resume(spec["output_dir"], gateway)
+    assert resumed["status"] == "accepted"
+    assert "last_reply" not in resumed
+    assert len(gateway.sent) == 1
+
+
+def test_pending_provider_approval_still_stops_and_is_not_sent_again(spec, monkeypatch):
+    monkeypatch.setattr(native, "_find_ffmpeg", lambda: "ffmpeg")
+    gateway = FakeGateway()
+    job = native.start(spec, gateway)
+    gateway.entries = [
+        {"kind": "message", "clientNonce": job["nonce"], "requestId": "request-1"},
+        {"kind": "send-message", "requestId": "request-1",
+         "message": {"type": "auto-review-approval", "approval": {"status": "pending"}}},
+    ]
+    assert native._wait(spec["output_dir"], gateway, 60)["status"] == "awaiting_approval"
+    assert len(gateway.sent) == 1
+    gateway.entries[1]["message"]["approval"]["status"] = "approved"
+    gateway.list_agents = lambda: [{"id": "bot", "isRunningTurn": True}]
+    assert native.resume(spec["output_dir"], gateway)["status"] == "accepted"
+    assert len(gateway.sent) == 1
+
+
+def test_wait_rechecks_transient_idle_before_requesting_attention(monkeypatch):
+    states = iter([{"status": "needs_attention"}, {"status": "accepted"}, {"status": "complete"}])
+    times = iter([0, 1, 6, 11])
+    monkeypatch.setattr(native, "resume", lambda *_: next(states))
+    monkeypatch.setattr(native, "time", SimpleNamespace(monotonic=lambda: next(times), sleep=lambda _: None))
+    assert native._wait("existing-job", object(), 60)["status"] == "complete"
+
+
+def test_wait_reports_persistent_attention_without_resubmission(monkeypatch):
+    times = iter([0, 1, 6, 11, 16])
+    monkeypatch.setattr(native, "resume", lambda *_: {"status": "needs_attention", "last_reply": "Please check billing."})
+    monkeypatch.setattr(native, "time", SimpleNamespace(monotonic=lambda: next(times), sleep=lambda _: None))
+    assert native._wait("existing-job", object(), 60)["status"] == "needs_attention"
 
 
 def test_bots_only_exposes_safe_fields(monkeypatch, capsys):

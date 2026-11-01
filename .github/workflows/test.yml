@@ -24,3 +24,16 @@ jobs:
         run: python -m pytest -q
       - name: Run offline demo (no spending, no network models)
         run: dhp demo --out outputs/demo-ci
+
+  unix-gateway-setup:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check private Unix gateway setup with offline fixtures
+        run: python -m unittest discover -s tests -p test_grok_unix_setup.py -v

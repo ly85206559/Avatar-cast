@@ -259,6 +259,11 @@ def resume(output_dir: str, client: GatewayClient | None = None) -> dict:
                 if replies and len(matches) == 1 and matches[0].get("isRunningTurn") is False:
                     job["status"] = "needs_attention"
                     job["last_reply"] = str(replies[-1])[-4000:]
+                elif (len(matches) == 1 and matches[0].get("isRunningTurn") is True
+                      and job["status"] in ("needs_attention", "awaiting_approval")):
+                    # The agent can briefly appear idle while a turn starts.
+                    job["status"] = "accepted"
+                    job.pop("last_reply", None)
             _write_json(receipt, job)
             return job
         job["expected_sha256"] = digest
@@ -293,12 +298,21 @@ def resume(output_dir: str, client: GatewayClient | None = None) -> dict:
 
 def _wait(output_dir: str, client: GatewayClient, seconds: float) -> dict:
     deadline = time.monotonic() + seconds
+    attention_since = None
     while True:
         job = resume(output_dir, client)
-        if job["status"] in ("complete", "media_unverified", "prepared", "upload_failed",
-                            "awaiting_approval", "needs_attention"):
+        now = time.monotonic()
+        if job["status"] == "needs_attention":
+            if attention_since is None:
+                attention_since = now
+            if now - attention_since >= 15:
+                return job
+        elif job["status"] in ("complete", "media_unverified", "prepared", "upload_failed",
+                              "awaiting_approval"):
             return job
-        remaining = deadline - time.monotonic()
+        else:
+            attention_since = None
+        remaining = deadline - now
         if remaining <= 0:
             return job
         time.sleep(min(5, remaining))
