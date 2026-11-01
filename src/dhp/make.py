@@ -329,23 +329,27 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
 
 
 def restyle_project(project: str, style: str, title: str | None = None,
-                    output_dir: str | None = None, *, pack: dict | None = None) -> dict:
+                    output_dir: str | None = None, *, pack: dict | None = None,
+                    request: str | None = None, asr_model: str | None = None) -> dict:
     """Render completed originals locally; never connect to a generation service."""
     from .native_assembly import assemble
 
     root = Path(project).expanduser().resolve()
     plan, _ = _load_plan(root)
     presentation = packaging.prepare(style, title if title is not None else
-                                     plan.get("presentation", {}).get("title", ""), plan.get("request", ""), pack)
+                                     plan.get("presentation", {}).get("title", ""), request or plan.get("request", ""), pack)
     jobs = [root / f"segment-{index:03}" for index in range(1, len(plan["segments"]) + 1)]
     for directory, text in zip(jobs, plan["segments"]):
         job = _read_json(directory / "job.json")
         if not isinstance(job.get("spec"), dict) or job["spec"].get("text") != text:
             raise ValueError("Existing job does not match the project script.")
     output = Path(output_dir or _new_output(root / "edits")).expanduser().resolve()
-    assemble([str(p) for p in jobs], str(output), presentation=presentation)
+    report = assemble([str(p) for p in jobs], str(output), presentation=presentation,
+                      auto_request=request, asr_model=asr_model)
     return {"status": "ready_for_review", "project": str(root), "video": str(output / "final.mp4"),
-            "qa": str(output / "qa.json"), "presentation": presentation, "generation_requests": 0}
+            "qa": str(output / "qa.json"), "presentation": report["presentation"], "generation_requests": 0,
+            "alignment_status": report.get("alignment", {}).get("status", "not_used"),
+            "warnings": report.get("warnings", [])}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -367,11 +371,15 @@ def main(argv: list[str] | None = None) -> int:
     show = commands.add_parser("show", help="show the exact local plan and its review hash")
     show.add_argument("--project", required=True)
     restyle = commands.add_parser("restyle", help="change packaging locally without generating again")
-    restyle.add_argument("--project", required=True)
-    restyle.add_argument("--style", choices=["auto", *packaging.STYLES], required=True)
+    edit_source = restyle.add_mutually_exclusive_group(required=True)
+    edit_source.add_argument("--project")
+    edit_source.add_argument("--job-dir", help="one completed native job; no project import or generation")
+    restyle.add_argument("--style", choices=["auto", *packaging.STYLES], default="auto")
     restyle.add_argument("--title")
     restyle.add_argument("--output-dir")
     restyle.add_argument("--pack-file", help="local component timeline JSON; never generates media")
+    restyle.add_argument("--request", help="one-sentence local packaging request; selects recipe and tries local ASR")
+    restyle.add_argument("--asr-model", help="local Vosk Chinese model directory; otherwise VOSK_MODEL_PATH")
     for name in ("run", "resume"):
         run = commands.add_parser(name, help="run the approved plan" if name == "run" else "continue the approved plan")
         run.add_argument("--project", required=True)
@@ -398,8 +406,21 @@ def main(argv: list[str] | None = None) -> int:
             plan, digest = _load_plan(root)
             result = {**plan, "status": "plan_only", "project": str(root), "plan_sha256": digest}
         elif args.command == "restyle":
-            result = restyle_project(args.project, args.style, args.title, args.output_dir,
-                                     pack=_read_json(Path(args.pack_file)) if args.pack_file else None)
+            pack = _read_json(Path(args.pack_file)) if args.pack_file else None
+            if args.project:
+                result = restyle_project(args.project, args.style, args.title, args.output_dir,
+                                         pack=pack, request=args.request, asr_model=args.asr_model)
+            else:
+                from .native_assembly import assemble
+
+                output = Path(args.output_dir or _new_output(Path(args.job_dir) / "edits")).resolve()
+                report = assemble([args.job_dir], str(output), presentation=packaging.prepare(
+                    args.style, args.title or "", args.request or "", pack),
+                    auto_request=args.request, asr_model=args.asr_model)
+                result = {"status": "ready_for_review", "video": str(output / "final.mp4"),
+                          "qa": str(output / "qa.json"), "presentation": report["presentation"],
+                          "alignment_status": report.get("alignment", {}).get("status", "not_used"),
+                          "warnings": report.get("warnings", []), "generation_requests": 0}
         else:
             result = run_project(args.project, confirm=getattr(args, "confirm_allowance", False),
                                  plan_sha256=getattr(args, "plan_sha256", None),

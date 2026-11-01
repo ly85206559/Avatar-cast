@@ -25,8 +25,10 @@ from pathlib import Path
 
 
 def _convert_to_16k_mono_wav(audio_path: str, out_path: str) -> str:
+    from .native_assembly import _find_ffmpeg
+
     subprocess.run([
-        "ffmpeg", "-y", "-v", "error", "-i", audio_path,
+        _find_ffmpeg(None), "-nostdin", "-y", "-v", "error", "-i", audio_path,
         "-ar", "16000", "-ac", "1", out_path,
     ], check=True)
     return out_path
@@ -49,7 +51,12 @@ class VoskASRProvider:
         with tempfile.TemporaryDirectory() as td:
             wav = _convert_to_16k_mono_wav(audio_path, str(Path(td) / "in.wav"))
             with wave.open(wav) as wf:
-                rec = KaldiRecognizer(Model(self.model_path), wf.getframerate())
+                try:
+                    model = Model(self.model_path)
+                except Exception as exc:
+                    # Vosk raises a plain Exception for incomplete/wrong model directories.
+                    raise RuntimeError("Vosk could not load the local model; check its directory.") from exc
+                rec = KaldiRecognizer(model, wf.getframerate())
                 rec.SetWords(True)
                 words = []
                 while True:

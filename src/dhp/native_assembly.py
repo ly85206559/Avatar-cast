@@ -104,19 +104,27 @@ def _tail_duration(video: Path, duration: float, ffmpeg: str) -> float:
 
 
 def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
-             presentation: dict | None = None) -> dict:
+             presentation: dict | None = None, *, auto_request: str | None = None,
+             asr_model: str | None = None) -> dict:
     """Produce an experimental subtitled cut from completed native jobs.
 
-    The input hashes are checked before rendering. Subtitle cues divide each
-    measured container duration by text length, not actual speech boundaries.
+    The input hashes are checked before rendering. Default captions divide each
+    container duration by text length; automatic packaging can instead use
+    conservatively matched local ASR sentence boundaries, with explicit fallback.
     No speech, identity, lip-sync or human acceptance is inferred.
     """
     if not job_dirs:
         raise ValueError("At least one completed native job is required.")
+    if auto_request is not None and (not isinstance(auto_request, str) or not auto_request.strip()):
+        raise ValueError("A non-empty packaging request is required.")
+    if auto_request is not None and presentation is None:
+        presentation = packaging.prepare(request=auto_request)
     if presentation is not None:
         presentation = packaging.prepare(**presentation)
     pack = presentation.get("pack") if presentation else None
-    trim_tail = bool(presentation) and pack is None
+    if pack is not None and auto_request is not None:
+        raise ValueError("Choose an automatic request or an explicit component timeline.")
+    trim_tail = bool(presentation) and pack is None and auto_request is None
     output = Path(output_dir).expanduser().absolute()
     if os.path.lexists(output):
         raise ValueError("Choose an output directory that does not already exist.")
@@ -184,6 +192,14 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         offset = 0.0
         cue_index = 0
         raw_duration = _duration(raw, executable)
+        automatic = None
+        if auto_request is not None:
+            from . import auto_pack
+
+            automatic = auto_pack.prepare(str(raw), "".join(item["text"] for item in inputs),
+                                          raw_duration, presentation["style"], presentation["title"], asr_model)
+            pack = automatic["pack"]
+            presentation = {**presentation, "pack": pack}
         timing_scale = min(1.0, raw_duration / sum(item["duration_sec"] for item in inputs))
         for item in inputs:
             text = " ".join(item["text"].split())
@@ -206,6 +222,12 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
                 cues.append(f"{cue_index}\n{_timestamp(offset)} --> {_timestamp(end)}\n" + "\n".join(group))
                 offset = end
         captions.write_text("\n\n".join(cues) + "\n", encoding="utf-8")
+        if automatic and automatic["alignment"]["status"] == "matched":
+            aligned_cues = automatic["alignment"]["cues"]
+            captions.write_text("\n\n".join(
+                f"{index}\n{_timestamp(cue['start'])} --> {_timestamp(cue['end'])}\n"
+                + "\n".join(textwrap.wrap(cue["text"], width=16, break_long_words=True, break_on_hyphens=False))
+                for index, cue in enumerate(aligned_cues, 1)) + "\n", encoding="utf-8")
         # Use an independent, full-duration ASS layer so the required label
         # remains at the top while the speech captions stay at the bottom.
         label = work / "ai-label.ass"
@@ -270,6 +292,14 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
                       + ("Source video is reused; segment count does not prove independent generations."
                          if unique_sources < len(inputs) else ""),
         }
+        if automatic:
+            report.update(auto_request=auto_request, alignment=automatic["alignment"], warnings=automatic["warnings"],
+                          subtitle_timing=("vosk_matched_sentence_bounds" if automatic["alignment"]["status"] == "matched"
+                                           else "estimated_from_segment_container_duration"))
+            report["notice"] = ("Local ASR timestamps are estimates and require playback review. "
+                                "Unmatched speech falls back to estimated captions. No generation was requested.")
+            for name, value in (("pack.json", pack), ("alignment.json", automatic["alignment"])):
+                (work / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         # Publish QA in an explicitly incomplete state first. Only mark it
         # assembled after the final file is fully copied into its new folder.
         staged_report = {**report, "status": "assembling"}
@@ -278,6 +308,9 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         qa_identity = _copy_exclusive(work / "qa.json", output / "qa.json")
         for name in ("original.mp4", "subtitles.srt"):
             _copy_exclusive(work / name, output / name)
+        if automatic:
+            for name in ("pack.json", "alignment.json"):
+                _copy_exclusive(work / name, output / name)
         final_identity = _copy_exclusive(work / "final.mp4", output / "final.mp4")
         try:
             current_qa = (output / "qa.json").stat(follow_symlinks=False)

@@ -8,6 +8,24 @@ import pytest
 from dhp.asr_vosk import VoskASRProvider
 
 
+def test_bad_model_load_is_an_actionable_local_setup_error(tmp_path, monkeypatch):
+    wav_path = tmp_path / "audio.wav"
+    with wave.open(str(wav_path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(b"\x00\x00" * 100)
+    fake_vosk = types.ModuleType("vosk")
+    def bad_model(_):
+        raise Exception("Failed to create a model")
+    fake_vosk.Model = bad_model
+    fake_vosk.KaldiRecognizer = lambda *_: pytest.fail("unloaded model reached recognizer")
+    monkeypatch.setitem(sys.modules, "vosk", fake_vosk)
+    monkeypatch.setattr("dhp.asr_vosk._convert_to_16k_mono_wav", lambda *_: str(wav_path))
+    with pytest.raises(RuntimeError, match="could not load"):
+        VoskASRProvider(str(tmp_path)).transcribe("unused.mp4")
+
+
 @pytest.mark.parametrize(
     ("finished", "final", "expected"),
     [

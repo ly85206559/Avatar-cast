@@ -30,9 +30,9 @@ def _text(value: object, limit: int = 160) -> bool:
 def validate(pack: dict, duration: float | None = None) -> dict:
     """Reject missing evidence and unusable timing before rendering."""
     if (not isinstance(pack, dict) or set(pack) != {"timing", "components"}
-            or pack["timing"] not in ("estimated", "manual_reviewed")
+            or pack["timing"] not in ("estimated", "manual_reviewed", "asr_matched")
             or not isinstance(pack["components"], list)):
-        raise ValueError("Pack needs timing (estimated/manual_reviewed) and a components list.")
+        raise ValueError("Pack needs timing (estimated/manual_reviewed/asr_matched) and a components list.")
     for item in pack["components"]:
         if (not isinstance(item, dict) or not isinstance(item.get("use"), str)
                 or item["use"] not in COMPONENTS):

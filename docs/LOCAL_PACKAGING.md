@@ -4,13 +4,30 @@
 
 ## 让助手操作
 
+优先直接给一句话，程序会选配方并尝试本地语音匹配：
+
+```text
+dhp make restyle --project outputs/my-video --request "把这条做成知识分享"
+dhp make restyle --job-dir outputs/completed-native-job --request "做成温暖陪伴"
+```
+
+无需填写 `--style` 或组件 JSON。推广组合强调已说出的短句并小幅变景；知识组合用已说出的要点推进，单个要点用文字摘录；温暖组合只保留少量关键句。不会因为用途是带货就补造商品、价格或测评，原片对白与表演保持原样。
+
+本地识别需要 `python -m pip install -e ".[asr]"`，并从 [Vosk 官方模型页](https://alphacephei.com/vosk/models)下载中文 `vosk-model-small-cn-0.22`（约 42 MB）。模型不随仓库分发；解压后设置 `VOSK_MODEL_PATH`，或仅本次传 `--asr-model MODEL_DIRECTORY`。命令运行时不下载模型、不上传媒体、不调用外部识别服务；FFmpeg 可使用已有系统版本或 `.[native]` 的本地备用版本。
+
+匹配规则是去掉标点后的文本完全一致，各词置信度至少 0.8，并有有效、顺序正确的时间戳；短句边界使用识别词的起止时间，不插值缺词。这个阈值是保守的选择规则，不能证明识别正确或口型合格。拼写不同、额外对白、低置信度或模型不可用都会降级为简单字幕与标题卡，结果含中文复核提示。降级时不保留复杂语音卡点，也不自动重试或换付费服务。
+
+输出包含 `pack.json`、`alignment.json` 和 QA，记录原始识别词、置信度、匹配／降级原因。成功的字幕状态为 `vosk_matched_sentence_bounds`，组件状态为 `asr_matched`；降级字幕依然标为估算。所有路径都需要播放复核，`speech_accuracy` 和口型质量不会因此自动变成通过。
+
+若需手工调整组件，仍可使用下面的显式时间线入口；`--request` 与 `--pack-file` 不能同时使用。
+
 对已完成的视频说：“保留原声，做成知识讲解包装”“少点花字”或“把依据展示出来”。助手读取原片与台词，准备组件时间线，再运行：
 
 ```text
 dhp make restyle --project outputs/my-video --style explainer --pack-file pack.json
 ```
 
-`--style` 支持 `clean / promo / explainer / warm / auto`。`--pack-file` 决定卡片文字与时间，覆盖原来的静态标题布局；修改这类标题时编辑对应 `TextCard`。不指定此参数时保留原有静态包装和保守裁尾行为。
+`--style` 支持 `clean / promo / explainer / warm / auto`。`--pack-file` 决定卡片文字与时间，覆盖原来的静态标题布局；修改这类标题时编辑对应 `TextCard`。没有指定 `--pack-file` 和 `--request` 时，保留原有静态包装和保守裁尾行为。
 
 显式组件时间线以规范化后的完整原片为基准，单位为秒，不裁尾、不改台词或表演。输出新目录，源任务、审核计划、原视频保持不变。未完成任务会停止，不能借此补交生成任务。
 
@@ -27,7 +44,7 @@ dhp make restyle --project outputs/my-video --style explainer --pack-file pack.j
 }
 ```
 
-`timing` 为 `estimated`（估算）或 `manual_reviewed`（调用者已看片复核）。后者是调用者的声明，程序不会据此宣称已做 ASR 或逐词对齐。时间必须是有限数值，`0 <= at < until`，并落在实际成片内。原片不足 8 秒时，需要调整上例时间。
+手写 `timing` 使用 `estimated`（估算）或 `manual_reviewed`（调用者已看片复核）。自动配方另可产生 `asr_matched`，表示采用识别匹配边界，不是人工验收或逐词强制对齐。时间必须是有限数值，`0 <= at < until`，并落在实际成片内。原片不足 8 秒时，需要调整上例时间。
 
 每一时刻尽量只保留一个主要信息卡；字幕位于下方，人脸附近留白。程序不自动识别人脸安全区，裁切和卡片进入／退出处仍需检查。
 

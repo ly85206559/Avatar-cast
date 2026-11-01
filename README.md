@@ -56,7 +56,9 @@ dhp make plan --image presenter.png --script-file script.txt --output-dir output
 
 换包装：`dhp make restyle --project outputs/my-video --style promo --title "新的标题"`。此命令只使用已完成的原片，无法替未完成的片段发起生成。
 
-已有原片也可使用 8 个基础组件：文字卡、关键词、数字卡、文字证据聚焦、文字对比、步骤推进、主播景别、复盘板。让助手根据原片准备时间线，再用 `dhp make restyle --project outputs/my-video --style explainer --pack-file pack.json` 本地重剪。组件使用原片秒数，显式时间线会保留完整原片长度；当前没有自动语音对齐。参数与三种对照样例见[本地组件包装](docs/LOCAL_PACKAGING.md)。
+已有原片也可使用 8 个基础组件：文字卡、关键词、数字卡、文字证据聚焦、文字对比、步骤推进、主播景别、复盘板。现在可以直接说“把这条做成知识分享”：`dhp make restyle --project outputs/my-video --request "把这条做成知识分享"` 会自动选择推广／知识／温暖配方并尝试本地 Vosk 语音匹配，无需手写时间线。首次安装 `.[asr]` 和中文模型后设置 `VOSK_MODEL_PATH`；缺模型、错词或低置信度时会输出简单包装与复核提示。匹配成功使用识别出的短句边界，仍不是逐词强制对齐。旧版单段任务可用 `--job-dir` 替代 `--project`。全程不提交生成任务。
+
+需要自定义组件时，也可用 `dhp make restyle --project outputs/my-video --style explainer --pack-file pack.json`。自动配方与显式时间线均保留完整原片长度。参数、识别模型设置与对照样例见[本地组件包装](docs/LOCAL_PACKAGING.md)。
 
 `script.txt` 使用 UTF-8。计划会自动按标点和长度分段，但时长只是估计；当前路线请求普通话、竖屏和 720p。打开 `outputs/my-video/plan.json`，核对全部台词、段数和费用条件。程序不能核实供应商的账单设置，也不能保证不会出现额外收费。若无法确认费用符合你的要求，先不要提交。
 
