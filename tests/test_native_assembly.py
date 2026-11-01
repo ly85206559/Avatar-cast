@@ -79,6 +79,34 @@ def test_single_native_clip_gets_captions_and_ai_label(tmp_path, ffmpeg):
     assert "单段字幕测试" in (output / "subtitles.srt").read_text(encoding="utf-8")
 
 
+def test_fallback_captions_keep_spoken_clauses_in_separate_cues(tmp_path, ffmpeg, monkeypatch):
+    from dhp import make
+
+    monkeypatch.setattr(make.GatewayClient, "from_config", lambda *_: pytest.fail("contacted generation gateway"))
+    clauses = ["下班后，", "先把工作消息放一放，", "再散步十分钟，", "最后听首喜欢的歌，", "给自己一点放松的时间。"]
+    video = tmp_path / "source.mp4"
+    _make_video(ffmpeg, video, "blue", "90x160", 440)
+    job = _job(tmp_path, "job", video.read_bytes(), text="".join(clauses))
+    output = tmp_path / "fallback"
+    report = assemble([str(job)], str(output), ffmpeg, auto_request="知识分享",
+                      asr_model=str(tmp_path / "missing-model"))
+    cues = (output / "subtitles.srt").read_text(encoding="utf-8").strip().split("\n\n")
+    assert ["".join(cue.splitlines()[2:]) for cue in cues] == clauses
+    assert report["alignment"]["status"] == "fallback"
+    assert report["subtitle_timing"] == "estimated_from_segment_container_duration"
+    assert report["generation_requests"] == 0 and report["subtitle_review"] == "required"
+
+
+def test_caption_wrapping_keeps_latin_words_and_decimal_numbers_intact():
+    text = "这是介绍 AvatarCast 和 Python 的视频，单词 Supercalifragilisticexpialidocious 不拆，数值 3.14159 保留。"
+    groups = native_assembly._caption_groups(text)
+    lines = [line for group in groups for line in group]
+    assert all(len(group) <= 2 for group in groups)
+    for word in ("AvatarCast", "Python", "Supercalifragilisticexpialidocious", "3.14159"):
+        assert any(word in line for line in lines)
+    assert "".join("".join(lines).split()) == "".join(text.split())
+
+
 def test_assembly_preserves_both_audio_segments_pads_and_renders_estimated_captions(tmp_path, ffmpeg):
     sources = []
     for name, color, size, freq, text in [

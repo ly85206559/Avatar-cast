@@ -25,6 +25,10 @@ from pathlib import Path
 class GatewayError(RuntimeError):
     """The gateway request or its response could not be used safely."""
 
+    def __init__(self, message: str, *, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class SubmissionUnknown(GatewayError):
     """A submitted prompt may have been accepted; reconcile before retrying."""
@@ -81,7 +85,7 @@ class GatewayClient:
             with self._opener.open(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            raise GatewayError(f"Gateway {operation} returned HTTP {exc.code}.") from None
+            raise GatewayError(f"Gateway {operation} returned HTTP {exc.code}.", status_code=exc.code) from None
         except (OSError, http.client.HTTPException, UnicodeError, ValueError):
             raise GatewayError(f"Gateway {operation} failed or returned invalid JSON.") from None
 

@@ -23,6 +23,8 @@ The supported guided route is `grok-native`: each segment generates its own pict
 
 Run `python -m dhp.cli make doctor`. For a real Grok Bot project also run `python -m dhp.cli make doctor --online`; this only reads gateway status and lists bots, without generating. On Windows, if the user has signed in to Grok Bot and the remote computer is awake, `pwsh -NoProfile -File scripts/setup_grok_bot_windows.ps1` can import the connection. It reads the local app's credential data and stores gateway credentials in the current user's `~/.gbm/config.json`; explain this before the import and never print the token. On macOS and Linux follow `docs/GROK_SETUP_UNIX.md`: the Unix importer reads the third-party Grok Bot CLI's local login and saves the gateway in the same private config. Explain that CLI's browser login and credential storage before use; do not claim live Unix support has been verified. The gateway is an unofficial, version-dependent interface and was validated on one Windows account.
 
+If the connection fails, follow the returned `recovery` steps. HTTP 417 can indicate a sleeping computer or stale gateway; it does not prove either cause. After the existing computer is woken, the import scripts poll readiness for up to 30 seconds before refreshing the private gateway. They do not wake or create a computer. If it remains unavailable, report the blocker. Preserve submitted job receipts and use `make resume` after connection recovery; do not start replacement jobs.
+
 If FFmpeg or its `subtitles` filter or `libx264` encoder is missing, help install an FFmpeg build with those features using a suitable trusted source and add it to PATH, then rerun `doctor`. The Python-provided fallback may lack the subtitles filter. Install a Chinese font if the check reports one missing; if font status is unknown, verify captions are legible. Explain that the project includes its own gateway client, not the Grok Bot application, account, CLI or MCP. Running an MCP server is not required; the macOS/Linux importer uses the separate CLI login unless a working gateway is already configured.
 
 ## Make a video
@@ -46,6 +48,8 @@ python -m dhp.cli make run --project NEW_PROJECT --plan-sha256 REVIEWED_PLAN_HAS
 ```
 
 Use the hash from the plan the user actually reviewed, not a newly computed hash after approval. If the plan changed, show it and obtain approval again. If more than one bot exists, use `dhp native bots` and add `--agent-id`. On interruption or a pending result, use `python -m dhp.cli make resume --project NEW_PROJECT`: it checks existing submissions without resending them, then may start remaining segments covered by the original approval. If the plan or image changes after approval, make a new project and obtain fresh approval. Never delete a job or blindly resubmit an uncertain request.
+
+`waiting` / `awaiting_result` means the existing request still lacks a verified final receipt. Show a short progress update and keep polling that request, without asking to regenerate. For the first 120 seconds, an idle bot with only an initial reply is not itself a failure; explicit approval requests or a bot awaiting user input still stop promptly. After the grace period, `needs_attention` requires inspecting the existing response rather than blindly retrying. CLI exit code 2 represents a non-final state, not permission to submit again.
 
 Once generation is complete, finish the default workflow with local automatic packaging; do not wait for a separate restyle request. Read `docs/LOCAL_PACKAGING.md` and run:
 

@@ -66,6 +66,8 @@ dhp make plan --image presenter.png --script-file script.txt --output-dir output
 
 `doctor` 检查 FFmpeg 的字幕滤镜、编码器及可检测的中文字体。如果 `subtitles` 或 `libx264` 为 `false`，需要安装包含相应功能的 FFmpeg 并加入 PATH，然后重新检查；随 Python 安装的备用 FFmpeg 不一定包含字幕滤镜。字体状态为 `unknown` 时需要自行确认；为 `missing` 时先安装中文字体。Linux 可安装 Noto CJK 字体，Windows 通常可以使用系统中文字体。
 
+连接失败时，`doctor --online` 和生成／恢复入口会给出 `recovery` 指引。HTTP 417 可能与电脑休眠或旧网关有关：先在 Grok Bot 唤醒已有电脑，再运行对应系统的连接导入脚本；脚本默认等待 30 秒就绪，不自动唤醒或创建电脑，不改计费设置。之后重新检查连接，已提交任务只恢复原项目。
+
 ```powershell
 dhp make show --project outputs/my-video
 dhp make run --project outputs/my-video --plan-sha256 REVIEWED_PLAN_HASH --confirm-allowance
@@ -73,6 +75,8 @@ dhp make resume --project outputs/my-video
 ```
 
 先通过 `show` 查看完整计划，把其中的 `plan_sha256` 填到 `REVIEWED_PLAN_HASH`。`--confirm-allowance` 表示你已审核并同意**这份计划中的所有片段**及账号的计费条件。如果确认前计划发生变化，需要重新查看并确认。只有一个 Bot 时自动选择；有多个时加 `--agent-id`，可用 `dhp native bots` 查看。`resume` 会查询已有任务，不会重发状态不明的请求；它也可能继续提交同一份已批准计划中尚未开始的片段。批准后改变计划或图片，需要创建新项目并重新确认。程序会拒绝同时运行同一项目。
+
+`waiting`／`awaiting_result` 表示仍在等待原请求的最终文件回执，退出码 2 也可能只是尚未完成。提交后的前 120 秒，只有开场回复、暂时显示空闲时会继续等待；明确的审批或用户回复请求仍立即停下。超过等待宽限期才转为需要检查，不能把它当作重新生成的理由。
 
 完成后，`result/final.mp4` 是供人工检查的视频，旁边有 `subtitles.srt` 和 `qa.json`。字幕时间按段长估算；口型、逐字准确性、跨段声音及人物一致性仍需人工检查。视频内已添加 AI 标识，发布时还需在描述栏添加标识。新项目入口已在一个 Windows 账号上实际提交并恢复一段成片；多段项目入口和其他账号仍待真实验证。
 

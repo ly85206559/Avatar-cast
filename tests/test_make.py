@@ -172,6 +172,27 @@ def test_online_doctor_returns_failure_when_gateway_unavailable(monkeypatch, cap
     assert json.loads(capsys.readouterr().out)["grok_bot"]["connection"] == "unavailable"
 
 
+@pytest.mark.parametrize("platform,command", [
+    ("win32", "pwsh -NoProfile -File scripts/setup_grok_bot_windows.ps1"),
+    ("darwin", "python scripts/setup_grok_bot_unix.py"),
+    ("linux", "python scripts/setup_grok_bot_unix.py"),
+])
+def test_sleeping_gateway_gives_recovery_steps_without_submitting(monkeypatch, capsys, platform, command):
+    from dhp.grok_gateway import GatewayError
+
+    monkeypatch.setattr(make.sys, "platform", platform)
+    def unavailable(*args, **kwargs):
+        raise GatewayError("Gateway listAgents returned HTTP 417.", status_code=417)
+    monkeypatch.setattr(make, "run_project", unavailable)
+    assert make.main(["resume", "--project", "existing-project"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "connection_unavailable"
+    assert result["recovery"]["setup_command"] == command
+    assert result["recovery"]["reason"] == "possibly_sleeping_or_stale_gateway"
+    assert result["recovery"]["resume_existing_only"] is True
+    assert "secret" not in json.dumps(result)
+
+
 @pytest.mark.parametrize("segment_count", [1, 3])
 def test_resume_without_resubmitting_and_assemble(image, tmp_path, monkeypatch, segment_count):
     ffmpeg = native._find_ffmpeg()

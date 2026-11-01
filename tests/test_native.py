@@ -3,6 +3,7 @@ import json
 import subprocess
 from types import SimpleNamespace
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from PIL import Image
@@ -19,7 +20,7 @@ class FakeGateway:
         self.downloads = 0
 
     def list_agents(self):
-        return [{"id": "bot", "isRunningTurn": False}]
+        return [{"id": "bot", "isRunningTurn": False, "awaitingUserResponse": bool(self.entries)}]
 
     def upload_attachment(self, agent_id, local_path, *, expected_sha256=None):
         assert hashlib.sha256(Path(local_path).read_bytes()).hexdigest() == expected_sha256
@@ -213,8 +214,35 @@ def test_pending_provider_approval_still_stops_and_is_not_sent_again(spec, monke
     assert len(gateway.sent) == 1
 
 
+@pytest.mark.parametrize("age,status", [(30, "awaiting_result"), (121, "needs_attention")])
+def test_idle_bot_with_starting_reply_waits_for_late_receipt(spec, monkeypatch, age, status):
+    monkeypatch.setattr(native, "_find_ffmpeg", lambda: "ffmpeg")
+    gateway = FakeGateway()
+    gateway.list_agents = lambda: [{"id": "bot", "isRunningTurn": False}]
+    job = native.start(spec, gateway)
+    job["created_at"] = (datetime.now(timezone.utc) - timedelta(seconds=age)).isoformat()
+    native._write_json(Path(spec["output_dir"]) / "job.json", job)
+    gateway.entries = result_entries(job)[:1] + [{"kind": "send-message", "requestId": "request-1",
+        "message": {"type": "text", "content": "按你授权只生成一次口播片。"}}]
+    recovered = native.resume(spec["output_dir"], gateway)
+    assert recovered["status"] == status
+    assert recovered["last_reply"] == "按你授权只生成一次口播片。"
+    gateway.entries = result_entries(job)
+    monkeypatch.setattr(native, "_check_media", lambda *_: {"decode": "pass", "audio": "non_silent"})
+    assert native.resume(spec["output_dir"], gateway)["status"] == "complete"
+    assert len(gateway.sent) == 1 and gateway.downloads == 1
+
+
+def test_wait_accepts_result_after_a_minute_of_idle_metadata(monkeypatch):
+    states = iter([{"status": "awaiting_result"}] * 3 + [{"status": "complete"}])
+    times = iter([0, 1, 26, 51, 68])
+    monkeypatch.setattr(native, "resume", lambda *_: next(states))
+    monkeypatch.setattr(native, "time", SimpleNamespace(monotonic=lambda: next(times), sleep=lambda _: None))
+    assert native._wait("existing-job", object(), 120)["status"] == "complete"
+
+
 def test_wait_rechecks_transient_idle_before_requesting_attention(monkeypatch):
-    states = iter([{"status": "needs_attention"}, {"status": "accepted"}, {"status": "complete"}])
+    states = iter([{"status": "awaiting_result"}, {"status": "accepted"}, {"status": "complete"}])
     times = iter([0, 1, 6, 11])
     monkeypatch.setattr(native, "resume", lambda *_: next(states))
     monkeypatch.setattr(native, "time", SimpleNamespace(monotonic=lambda: next(times), sleep=lambda _: None))

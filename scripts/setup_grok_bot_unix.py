@@ -14,6 +14,7 @@ import re
 import stat
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -94,14 +95,21 @@ def _gateway(route: dict) -> dict:
     return {"baseUrl": url, "token": token, "headers": headers}
 
 
-def import_gateway(path: Path) -> None:
+def import_gateway(path: Path, wait_seconds: int = 0) -> None:
+    if not 0 <= wait_seconds <= 120:
+        raise SetupError("wait-seconds must be between 0 and 120.")
     original, config = _read_config(path)
     token = config.get("accessToken")
     if not isinstance(token, str) or not re.fullmatch(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", token):
         raise SetupError("No valid CLI login found; sign in with the same Grok Bot account first.")
+    deadline = time.monotonic() + wait_seconds
     state = _request("GetSandBoxRunState", token, {})
-    if state.get("state") not in ("SAND_BOX_RUN_STATE_RUNNING", 3):
-        raise SetupError("The Grok Bot computer is not running; wake it in the desktop app first.")
+    while state.get("state") not in ("SAND_BOX_RUN_STATE_RUNNING", 3):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise SetupError("The Grok Bot computer is not running; wake it in the desktop app and run setup again.")
+        time.sleep(min(2, remaining))
+        state = _request("GetSandBoxRunState", token, {})
     route = _request("EnsureSandBox", token, {"wake": False})
     if route.get("runState") not in ("SAND_BOX_RUN_STATE_RUNNING", 3):
         raise SetupError("The Grok Bot computer is no longer running; no configuration was changed.")
@@ -127,12 +135,14 @@ def import_gateway(path: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path.home() / ".gbm" / "config.json")
+    parser.add_argument("--wait-seconds", type=int, default=30,
+                        help="wait 0–120 seconds for an already-starting computer; never wakes it")
     args = parser.parse_args()
     if sys.platform != "darwin" and not sys.platform.startswith("linux"):
         print("This setup is for macOS and Linux; Windows users should use setup_grok_bot_windows.ps1.", file=sys.stderr)
         return 1
     try:
-        import_gateway(args.config.expanduser())
+        import_gateway(args.config.expanduser(), args.wait_seconds)
     except (SetupError, OSError) as exc:
         print(f"Grok Bot setup failed: {exc if isinstance(exc, SetupError) else 'local file operation failed.'}", file=sys.stderr)
         return 1

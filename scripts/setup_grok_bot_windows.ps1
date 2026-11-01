@@ -1,4 +1,4 @@
-param([switch]$FunctionsOnly)
+param([switch]$FunctionsOnly, [ValidateRange(0,120)][int]$WaitSeconds = 30)
 
 # Grok Bot's gateway is a private, version-dependent interface. This imports
 # the current account's running connection; it does not wake or create a box.
@@ -69,7 +69,8 @@ function Invoke-GrokSetupRequest([string]$Method, [string]$Body, [hashtable]$Hea
     }
 }
 
-function Import-GrokBotGateway([string]$AppDataPath, [string]$ConfigPath) {
+function Import-GrokBotGateway([string]$AppDataPath, [string]$ConfigPath,
+                              [ValidateRange(0,120)][int]$WaitSeconds = 0) {
     $localState = Read-GrokJson (Join-Path $AppDataPath 'Local State') 'Grok Bot Local State'
     $appSecrets = Read-GrokJson (Join-Path $AppDataPath 'sand-secrets.json') 'Grok Bot sign-in data'
     $dataKey = $null
@@ -115,9 +116,15 @@ function Import-GrokBotGateway([string]$AppDataPath, [string]$ConfigPath) {
             'x-cursor-client-version' = $version
             'x-sand-box-namespace' = 'prod'
         }
+        $readiness = [Diagnostics.Stopwatch]::StartNew()
         $state = Invoke-GrokSetupRequest 'GetSandBoxRunState' '{}' $headers
-        if ($state.state -ne 'SAND_BOX_RUN_STATE_RUNNING' -and $state.state -ne 3) {
-            throw [GrokSetupError]::new('The Grok Bot computer is not running. Wake it in Grok Bot and run setup again.')
+        while ($state.state -ne 'SAND_BOX_RUN_STATE_RUNNING' -and $state.state -ne 3) {
+            $remaining = $WaitSeconds - $readiness.Elapsed.TotalSeconds
+            if ($remaining -le 0) {
+                throw [GrokSetupError]::new('The Grok Bot computer is not running. Wake it in Grok Bot and run setup again.')
+            }
+            Start-Sleep -Milliseconds ([int][Math]::Min(2000, [Math]::Ceiling($remaining * 1000)))
+            $state = Invoke-GrokSetupRequest 'GetSandBoxRunState' '{}' $headers
         }
         # This is the application's describe request for an already-running box.
         # Provider-side behavior is private and can change; it is not a stable API.
@@ -184,7 +191,7 @@ if (-not $FunctionsOnly) {
     }
     $appDataPath = if ($env:SAND_USER_DATA_DIR) { $env:SAND_USER_DATA_DIR } else { Join-Path $env:APPDATA 'Grok Bot' }
     $configPath = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.gbm/config.json'
-    try { Import-GrokBotGateway $appDataPath $configPath }
+    try { Import-GrokBotGateway $appDataPath $configPath $WaitSeconds }
     catch [GrokSetupError] { Write-Error $_.Exception.Message; exit 1 }
     catch { Write-Error 'Grok Bot setup failed. The connection was not imported.'; exit 1 }
 }

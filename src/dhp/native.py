@@ -20,6 +20,8 @@ from PIL import Image, UnidentifiedImageError
 
 from .grok_gateway import GatewayClient, GatewayError, SubmissionUnknown
 
+RESULT_RECEIPT_GRACE_SECONDS = 120
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -257,10 +259,13 @@ def resume(output_dir: str, client: GatewayClient | None = None) -> dict:
                 agents = client.list_agents()
                 matches = [agent for agent in agents if agent.get("id") == job["spec"]["agent_id"]]
                 if replies and len(matches) == 1 and matches[0].get("isRunningTurn") is False:
-                    job["status"] = "needs_attention"
                     job["last_reply"] = str(replies[-1])[-4000:]
+                    age = (datetime.now(timezone.utc) - datetime.fromisoformat(job["created_at"])).total_seconds()
+                    # Idle metadata can arrive while the video tool or final receipt is still pending.
+                    job["status"] = ("awaiting_result" if not matches[0].get("awaitingUserResponse")
+                                     and 0 <= age < RESULT_RECEIPT_GRACE_SECONDS else "needs_attention")
                 elif (len(matches) == 1 and matches[0].get("isRunningTurn") is True
-                      and job["status"] in ("needs_attention", "awaiting_approval")):
+                      and job["status"] in ("needs_attention", "awaiting_approval", "awaiting_result")):
                     # The agent can briefly appear idle while a turn starts.
                     job["status"] = "accepted"
                     job.pop("last_reply", None)
@@ -298,20 +303,12 @@ def resume(output_dir: str, client: GatewayClient | None = None) -> dict:
 
 def _wait(output_dir: str, client: GatewayClient, seconds: float) -> dict:
     deadline = time.monotonic() + seconds
-    attention_since = None
     while True:
         job = resume(output_dir, client)
         now = time.monotonic()
-        if job["status"] == "needs_attention":
-            if attention_since is None:
-                attention_since = now
-            if now - attention_since >= 15:
-                return job
-        elif job["status"] in ("complete", "media_unverified", "prepared", "upload_failed",
-                              "awaiting_approval"):
+        if job["status"] in ("complete", "media_unverified", "prepared", "upload_failed",
+                             "awaiting_approval", "needs_attention"):
             return job
-        else:
-            attention_since = None
         remaining = deadline - now
         if remaining <= 0:
             return job

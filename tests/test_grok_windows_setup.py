@@ -59,6 +59,7 @@ function global:Invoke-RestMethod {
   $global:grokMockCalls.Add(@{uri=$Uri;body=$Body;maximumRedirection=$MaximumRedirection})
   if ($scenario -eq 'network-fail') { throw 'synthetic-gateway-token and synthetic-network-token' }
   if ($Uri -eq 'https://api2.cursor.sh/aiserver.v1.GrokBotService/GetSandBoxRunState') {
+    if ($scenario -eq 'waking' -and $global:grokMockCalls.Count -eq 1) { return @{state='SAND_BOX_RUN_STATE_STARTING'} }
     return @{state=$(if($scenario -eq 'sleeping') {'SAND_BOX_RUN_STATE_HIBERNATED'} else {'SAND_BOX_RUN_STATE_RUNNING'})}
   }
   if ($Uri -eq 'https://api2.cursor.sh/aiserver.v1.GrokBotService/EnsureSandBox') {
@@ -67,8 +68,9 @@ function global:Invoke-RestMethod {
   throw 'Unexpected API call'
 }
 $ok=$false; $reason=''
+function global:Start-Sleep { param($Milliseconds) }
 try {
-  Import-GrokBotGateway $appPath $configPath | Out-Null
+  Import-GrokBotGateway $appPath $configPath -WaitSeconds $(if ($scenario -eq 'waking') {2} else {0}) | Out-Null
   if ($scenario -eq 'idempotent') { Import-GrokBotGateway $appPath $configPath | Out-Null }
   $ok=$true
 }
@@ -146,3 +148,12 @@ def test_setup_failure_does_not_save_a_gateway(tmp_path, scenario):
         assert "permissions" in result["reason"]
         assert result["aclUnchanged"] is True
         assert result["contentUnchanged"] is True
+
+
+def test_setup_waits_for_a_starting_box_and_never_wakes_it(tmp_path):
+    result = _setup(tmp_path, "waking")
+    assert result["ok"] is True, result["reason"]
+    assert result["savedGateway"] is True and result["private"] is True
+    assert [c["uri"].split("/")[-1] for c in result["calls"]] == [
+        "GetSandBoxRunState", "GetSandBoxRunState", "EnsureSandBox"]
+    assert result["calls"][-1]["body"] == '{"wake":false}'

@@ -66,6 +66,24 @@ def _timestamp(seconds: float) -> str:
             f"{(milliseconds // 1000) % 60:02},{milliseconds % 1000:03}")
 
 
+def _caption_groups(text: str) -> list[list[str]]:
+    """Prefer complete clauses; never cut Latin words or decimal numbers."""
+    groups = []
+    for clause in re.split(r"(?<=[，。！？；：、!?;:])\s*|(?<=[,.])(?=\s|$)\s*", text):
+        lines, line = [], ""
+        for token in re.findall(r"[A-Za-z0-9]+(?:[.'’:/_%+-][A-Za-z0-9]+)*|.", clause):
+            if line and len(line + token) > 16 and token not in "，。！？；：、,.!?;:":
+                if line.strip():
+                    lines.append(line.rstrip())
+                line = token.lstrip()
+            else:
+                line += token
+        if line.strip():
+            lines.append(line.rstrip())
+        groups.extend(lines[i:i + 2] for i in range(0, len(lines), 2))
+    return groups
+
+
 def _remove_owned(path: Path, identity: os.stat_result) -> None:
     """Remove only the exact file this assembly call created."""
     try:
@@ -203,15 +221,7 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         timing_scale = min(1.0, raw_duration / sum(item["duration_sec"] for item in inputs))
         for item in inputs:
             text = " ".join(item["text"].split())
-            groups = []
-            for sentence in re.split(r"(?<=[。！？!?])", text):
-                lines = textwrap.wrap(sentence, width=16, break_long_words=True, break_on_hyphens=False)
-                # Avoid leaving a tiny fragment on a line by itself.
-                if len(lines) > 1 and len(lines[-1]) < 5 and len(lines[-2]) > 8:
-                    shift = 5 - len(lines[-1])
-                    lines[-1] = lines[-2][-shift:] + lines[-1]
-                    lines[-2] = lines[-2][:-shift]
-                groups.extend(lines[i:i + 2] for i in range(0, len(lines), 2))
+            groups = _caption_groups(text)
             weights = [sum(len(line) for line in group) for group in groups]
             segment_start = offset
             elapsed_weight = 0

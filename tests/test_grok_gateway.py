@@ -21,6 +21,9 @@ def gateway():
         def do_POST(self):
             payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             state["calls"].append((self.path, payload, self.headers.get("Authorization")))
+            if state["mode"] == "sleeping":
+                self.send_error(417, "synthetic-secret")
+                return
             if state["mode"] == "close" and self.path == "/api/sendPrompt":
                 self.connection.shutdown(socket.SHUT_RDWR)
                 self.connection.close()
@@ -77,6 +80,17 @@ def gateway():
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_gateway_error_exposes_status_without_server_body_or_credentials(gateway):
+    client, state = gateway
+    state["mode"] = "sleeping"
+    with pytest.raises(GatewayError) as error:
+        client.list_agents()
+    assert error.value.status_code == 417
+    assert "417" in str(error.value)
+    assert "synthetic-secret" not in str(error.value)
+    assert "test-secret" not in str(error.value)
 
 
 def test_gateway_replays_actual_upload_submit_and_transcript_shapes(gateway, tmp_path):

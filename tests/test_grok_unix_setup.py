@@ -56,6 +56,30 @@ class UnixSetupTests(unittest.TestCase):
         self.assertEqual(request.call_count, 1)
         self.assertEqual(self.config.read_bytes(), original)
 
+    def test_waits_for_starting_computer_without_waking_or_creating_it(self):
+        def request(method, token, body):
+            if method == "GetSandBoxRunState" and not self.calls:
+                self.calls.append((method, body))
+                return {"state": "STARTING"}
+            return self.request(method, token, body)
+        with (mock.patch.object(setup, "_request", side_effect=request),
+              mock.patch.object(setup.time, "sleep") as sleep):
+            setup.import_gateway(self.config, wait_seconds=4)
+        sleep.assert_called_once()
+        self.assertEqual(self.calls, [("GetSandBoxRunState", {}), ("GetSandBoxRunState", {}),
+                                     ("EnsureSandBox", {"wake": False})])
+
+    def test_readiness_timeout_preserves_config_and_does_not_ensure(self):
+        original = self.config.read_bytes()
+        with (mock.patch.object(setup, "_request", return_value={"state": "SLEEPING"}) as request,
+              mock.patch.object(setup.time, "sleep"),
+              mock.patch.object(setup.time, "monotonic", side_effect=[0, 1, 3])):
+            with self.assertRaisesRegex(setup.SetupError, "not running"):
+                setup.import_gateway(self.config, wait_seconds=2)
+        self.assertEqual(request.call_count, 2)
+        self.assertTrue(all(c.args[0] == "GetSandBoxRunState" for c in request.call_args_list))
+        self.assertEqual(self.config.read_bytes(), original)
+
     def test_untrusted_gateway_does_not_save_or_expose_token(self):
         original = self.config.read_bytes()
         routes = [{"state": 3}, {"runState": 3, "gatewayUrl": "https://evil.example",

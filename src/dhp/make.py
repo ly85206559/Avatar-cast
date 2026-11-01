@@ -127,6 +127,19 @@ def _chinese_font_status() -> str:
     return "available" if result.stdout.strip() else "missing"
 
 
+def _gateway_recovery(error: GatewayError) -> dict:
+    return {
+        "reason": "possibly_sleeping_or_stale_gateway" if error.status_code == 417 else "connection_unavailable",
+        "steps": ["在 Grok Bot 桌面确认已登录，并唤醒已有电脑；不要创建新电脑或更改计费设置。",
+                  "电脑开始启动后运行连接导入脚本；脚本最多等待 30 秒就绪，不会替你唤醒电脑。",
+                  "重新运行 make doctor --online。对已提交的任务只恢复原项目，不删除回执或重复生成。"],
+        "setup_command": ("pwsh -NoProfile -File scripts/setup_grok_bot_windows.ps1" if sys.platform == "win32"
+                          else "python scripts/setup_grok_bot_unix.py"),
+        "check_command": "python -m dhp.cli make doctor --online",
+        "resume_existing_only": True,
+    }
+
+
 def doctor(online: bool = False, gateway_config: str | None = None) -> dict:
     """Check local prerequisites; online mode only lists bots and never generates."""
     executable = native._find_ffmpeg()
@@ -144,7 +157,7 @@ def doctor(online: bool = False, gateway_config: str | None = None) -> dict:
             gateway.update(connection="ok", bots=[{k: a[k] for k in ("id", "name", "isRunningTurn")
                                                     if k in a} for a in agents if isinstance(a, dict)])
         except GatewayError as exc:
-            gateway.update(connection="unavailable", message=str(exc))
+            gateway.update(connection="unavailable", message=str(exc), recovery=_gateway_recovery(exc))
     return {
         "python": sys.version.split()[0], "ffmpeg": checks,
         "chinese_font": _chinese_font_status(), "grok_bot": gateway,
@@ -292,7 +305,7 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
             if job.get("status") == "complete":
                 job = native.resume(str(job_dir))
             elif job.get("status") in ("accepted", "submitting", "submission_unknown", "result_ready", "downloaded",
-                                      "awaiting_approval", "needs_attention", "media_unverified"):
+                                      "awaiting_approval", "awaiting_result", "needs_attention", "media_unverified"):
                 client = client or GatewayClient.from_config(gateway_config)
                 job = native._wait(str(job_dir), client, wait_seconds)
             if job.get("status") != "complete":
@@ -302,7 +315,7 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
                         "segment": index, "segment_status": job.get("status"),
                         "message": "Inspect the existing job and any bot response before continuing. "
                                    "Existing submissions will not be resent." if attention else
-                                   "Resume this project; existing submissions will not be resent.",
+                                   "请求已提交，正在等待最终文件回执。恢复此项目会查询原任务，不会重复提交。",
                         "last_reply": job.get("last_reply")}
         output = root / "result"
         if output.exists():
@@ -432,6 +445,10 @@ def main(argv: list[str] | None = None) -> int:
                                           or (args.online and result["grok_bot"]["connection"] != "ok")):
             return 1
         return 2 if result.get("status") in ("waiting", "needs_attention") else 0
+    except GatewayError as exc:
+        print(json.dumps({"status": "connection_unavailable", "message": str(exc),
+                          "recovery": _gateway_recovery(exc)}, ensure_ascii=False, indent=2))
+        return 1
     except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as exc:
         print(f"make: {exc}", file=sys.stderr)
         return 1
