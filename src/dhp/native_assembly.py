@@ -13,6 +13,8 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from . import presentation as packaging
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -86,7 +88,22 @@ def _copy_exclusive(source: Path, destination: Path) -> os.stat_result:
     return identity
 
 
-def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) -> dict:
+def _tail_duration(video: Path, duration: float, ffmpeg: str) -> float:
+    """Trim only long terminal near-silence; preserve ambiguous or quiet clips."""
+    result = _run([ffmpeg, "-nostdin", "-hide_banner", "-i", str(video), "-vn",
+                   "-af", "silencedetect=noise=-50dB:d=2", "-f", "null", "-"])
+    starts = re.findall(r"silence_start:\s*(-?\d+(?:\.\d+)?)", result.stderr)
+    ends = re.findall(r"silence_end:\s*(-?\d+(?:\.\d+)?)", result.stderr)
+    if not starts or not ends:
+        return duration
+    start, end = float(starts[-1]), float(ends[-1])
+    if start < max(1.0, duration * 0.25) or end < duration - 0.15 or end - start < 2:
+        return duration
+    return min(duration, start + 0.8)
+
+
+def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
+             presentation: dict | None = None) -> dict:
     """Produce an experimental subtitled cut from completed native jobs.
 
     The input hashes are checked before rendering. Subtitle cues divide each
@@ -95,6 +112,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
     """
     if not job_dirs:
         raise ValueError("At least one completed native job is required.")
+    if presentation is not None:
+        presentation = packaging.prepare(**presentation)
     output = Path(output_dir).expanduser().absolute()
     if os.path.lexists(output):
         raise ValueError("Choose an output directory that does not already exist.")
@@ -124,7 +143,9 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
 
     executable = _find_ffmpeg(ffmpeg)
     for item in inputs:
-        item["duration_sec"] = _duration(item["video"], executable)
+        measured = _duration(item["video"], executable)
+        item["source_duration_sec"] = measured
+        item["duration_sec"] = _tail_duration(item["video"], measured, executable) if presentation else measured
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.mkdir(exist_ok=False)
@@ -140,8 +161,10 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
         command = [executable, "-nostdin", "-v", "error"]
         for index, item in enumerate(inputs):
             command += ["-i", str(item["video"])]
-            filters.append(f"[{index}:v:0]setpts=PTS-STARTPTS,{scale}[v{index}]")
-            filters.append(f"[{index}:a:0]asetpts=PTS-STARTPTS,aresample=48000,"
+            video_trim = f"trim=duration={item['duration_sec']:.5f}," if presentation else ""
+            audio_trim = f"apad,atrim=duration={item['duration_sec']:.5f}," if presentation else ""
+            filters.append(f"[{index}:v:0]{video_trim}setpts=PTS-STARTPTS,{scale}[v{index}]")
+            filters.append(f"[{index}:a:0]{audio_trim}asetpts=PTS-STARTPTS,aresample=48000,"
                            f"aformat=sample_fmts=fltp:channel_layouts=stereo[a{index}]")
             concat_inputs.append(f"[v{index}][a{index}]")
         filters.append("".join(concat_inputs) + f"concat=n={len(inputs)}:v=1:a=1[outv][outa]")
@@ -195,9 +218,13 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
             f"Dialogue: 0,0:00:00.00,{end},Label,,0,0,0,,AI 数字人演绎\n",
             encoding="utf-8",
         )
+        caption_filter = "subtitles=subtitles.srt:force_style='FontName=Microsoft YaHei,FontSize=9,Bold=1,Outline=1,MarginV=18',subtitles=ai-label.ass"
+        if presentation:
+            packaging.write_overlay(label, raw_duration, presentation)
+            caption_filter = packaging.subtitle_filter(presentation)
         final = work / "final.mp4"
         _run([executable, "-nostdin", "-v", "error", "-i", str(raw),
-              "-vf", "subtitles=subtitles.srt:force_style='FontName=Microsoft YaHei,FontSize=9,Bold=1,Outline=1,MarginV=18',subtitles=ai-label.ass",
+              "-vf", caption_filter,
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
               "-c:a", "copy", "-movflags", "+faststart", str(final)], cwd=work)
         # Final full decode verifies the produced streams, not speech accuracy.
@@ -211,6 +238,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
             "subtitles": "subtitles.srt", "segment_count": len(inputs),
             "raw_video_sha256": _sha256(raw), "video_sha256": _sha256(final),
             "output_duration_sec": final_duration,
+            "presentation": presentation,
+            "tail_trim": "conservative_near_silence_detection" if presentation else "disabled",
             "unique_source_count": unique_sources, "reused_source_video": unique_sources < len(inputs),
             "subtitle_timing": "estimated_from_segment_container_duration",
             "subtitle_review": "required", "speech_accuracy": "not_evaluated",
@@ -218,10 +247,13 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None) ->
             "human_review": "not_reviewed", "publication_approval": "not_granted",
             "ai_label": "burned_in_video", "ai_label_text": "AI 数字人演绎",
             "description_label": "not_checked",
-            "native_audio": "preserved_content_reencoded_to_aac_48khz",
+            "native_audio": ("tail_trimmed_from_unchanged_source_reencoded_to_aac_48khz" if
+                             any(item["duration_sec"] < item["source_duration_sec"] for item in inputs)
+                             else "preserved_content_reencoded_to_aac_48khz"),
             "video_geometry": "720x1280_aspect_preserving_pad_30fps",
             "segments": [{"job_dir": item["job_dir"], "sha256": item["sha256"],
-                          "duration_sec": item["duration_sec"], "text": item["text"]}
+                          "duration_sec": item["duration_sec"], "source_duration_sec": item["source_duration_sec"],
+                          "text": item["text"]}
                          for item in inputs],
             "notice": "Subtitle cues are estimated from each segment duration, not word alignment; "
                       "review speech, timing, visual captions, lip sync, and add AI labeling to the description before release. "

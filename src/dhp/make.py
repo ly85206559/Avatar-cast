@@ -14,14 +14,16 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from PIL import Image
 
 from . import native
 from .grok_gateway import GatewayClient, GatewayError
+from . import presentation as packaging
 
 
-def split_script(text: str, limit: int = 32) -> list[str]:
+def split_script(text: str, limit: int = 48) -> list[str]:
     """Split at nearby punctuation, keeping all words; length is only an estimate."""
     remaining = " ".join(text.split())
     if not remaining:
@@ -58,12 +60,18 @@ def _write_new_json(path: Path, value: dict) -> None:
         target.write("\n")
 
 
-def create_plan(image: str, text: str, output_dir: str, duration: int = 10) -> dict:
+def _new_output(parent: Path = Path("outputs")) -> str:
+    return str(parent / (datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid4().hex[:6]))
+
+
+def create_plan(image: str, text: str, output_dir: str | None = None, duration: int = 10,
+                *, presentation: dict | None = None, request: str | None = None) -> dict:
     """Write a reviewable plan locally. No gateway is contacted or media uploaded."""
-    root = Path(output_dir).expanduser().resolve()
+    root = Path(output_dir or _new_output()).expanduser().resolve()
     if root.exists():
         raise ValueError("Choose a project directory that does not already exist.")
     segments = split_script(text)
+    presentation = packaging.prepare(**(presentation or {}))
     spec = native.plan(image, segments[0], "select-at-run", str(root / "segment-001"), duration)
     with Image.open(spec["image"]) as presenter:
         if presenter.format not in ("JPEG", "PNG", "WEBP"):
@@ -73,6 +81,8 @@ def create_plan(image: str, text: str, output_dir: str, duration: int = 10) -> d
         "image_sha256": spec["image_sha256"], "duration_sec_per_segment": duration,
         "language": "Mandarin", "aspect_ratio": spec["aspect_ratio"], "resolution": spec["resolution"],
         "segments": segments, "estimated_total_duration_sec": duration * len(segments),
+        "presentation": presentation,
+        **({"request": request} if request else {}),
         "billing": {
             "mode": "existing_allowance", "estimated_cost": None, "quota_consumption": None,
             "notice": "Check the actual subscription, remaining allowance and on-demand settings "
@@ -85,6 +95,16 @@ def create_plan(image: str, text: str, output_dir: str, duration: int = 10) -> d
     _write_new_json(root / "plan.json", plan)
     return {**plan, "status": "plan_only", "project": str(root),
             "plan_sha256": native._sha256(root / "plan.json")}
+
+
+def create_brief_plan(image: str, brief: dict, output_dir: str | None = None, duration: int = 10) -> dict:
+    """The host assistant writes the narration; this command never calls an LLM."""
+    if (not isinstance(brief.get("request"), str) or not brief["request"].strip()
+            or not isinstance(brief.get("script"), str) or not brief["script"].strip()):
+        raise ValueError("Brief needs the user's request and an assistant-drafted script.")
+    presentation = packaging.prepare(brief.get("style", "auto"), brief.get("title", ""), brief["request"])
+    return create_plan(image, brief["script"], output_dir, duration,
+                       presentation=presentation, request=brief["request"])
 
 
 def _chinese_font_status() -> str:
@@ -189,6 +209,11 @@ def _load_plan(root: Path) -> tuple[dict, str]:
             or not isinstance(plan.get("duration_sec_per_segment"), int)
             or not 1 <= plan["duration_sec_per_segment"] <= 15):
         raise ValueError("The project plan is invalid.")
+    if "presentation" in plan:
+        value = plan["presentation"]
+        if (not isinstance(value, dict) or set(value) != {"style", "title"}
+                or packaging.prepare(value["style"], value["title"]) != value):
+            raise ValueError("The presentation in the project plan is invalid.")
     return plan, hashlib.sha256(raw).hexdigest()
 
 
@@ -285,6 +310,7 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
             video = output / "final.mp4"
             segments = report.get("segments")
             if (report.get("status") != "assembled" or not video.is_file()
+                    or report.get("presentation") != plan.get("presentation")
                     or native._sha256(video) != report.get("video_sha256")
                     or not isinstance(segments, list) or any(not isinstance(s, dict) for s in segments)
                     or [s.get("sha256") for s in segments]
@@ -293,13 +319,33 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
         else:
             from .native_assembly import assemble
 
-            report = assemble(jobs, str(output))
+            report = assemble(jobs, str(output), presentation=plan.get("presentation"))
         return {"status": "ready_for_review", "project": str(root),
                 "video": str(output / "final.mp4"), "subtitles": str(output / "subtitles.srt"),
                 "qa": str(output / "qa.json"), "segment_count": len(jobs),
                 "quality_verdict": report.get("quality_verdict"),
                 "notice": "Review speech, lip sync, captions, identity, and voice consistency. "
                           "Subtitle timing is estimated; billing was not verified by this program."}
+
+
+def restyle_project(project: str, style: str, title: str | None = None,
+                    output_dir: str | None = None) -> dict:
+    """Render completed originals locally; never connect to a generation service."""
+    from .native_assembly import assemble
+
+    root = Path(project).expanduser().resolve()
+    plan, _ = _load_plan(root)
+    presentation = packaging.prepare(style, title if title is not None else
+                                     plan.get("presentation", {}).get("title", ""), plan.get("request", ""))
+    jobs = [root / f"segment-{index:03}" for index in range(1, len(plan["segments"]) + 1)]
+    for directory, text in zip(jobs, plan["segments"]):
+        job = _read_json(directory / "job.json")
+        if not isinstance(job.get("spec"), dict) or job["spec"].get("text") != text:
+            raise ValueError("Existing job does not match the project script.")
+    output = Path(output_dir or _new_output(root / "edits")).expanduser().resolve()
+    assemble([str(p) for p in jobs], str(output), presentation=presentation)
+    return {"status": "ready_for_review", "project": str(root), "video": str(output / "final.mp4"),
+            "qa": str(output / "qa.json"), "presentation": presentation, "generation_requests": 0}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -313,10 +359,18 @@ def main(argv: list[str] | None = None) -> int:
     text = create.add_mutually_exclusive_group(required=True)
     text.add_argument("--text")
     text.add_argument("--script-file")
-    create.add_argument("--output-dir", required=True)
+    text.add_argument("--brief-file", help="assistant-prepared request, script, title and style")
+    create.add_argument("--output-dir", help="default: a new project under outputs/")
+    create.add_argument("--style", choices=["auto", *packaging.STYLES], default="auto")
+    create.add_argument("--title", default="")
     create.add_argument("--duration", type=int, default=10)
     show = commands.add_parser("show", help="show the exact local plan and its review hash")
     show.add_argument("--project", required=True)
+    restyle = commands.add_parser("restyle", help="change packaging locally without generating again")
+    restyle.add_argument("--project", required=True)
+    restyle.add_argument("--style", choices=["auto", *packaging.STYLES], required=True)
+    restyle.add_argument("--title")
+    restyle.add_argument("--output-dir")
     for name in ("run", "resume"):
         run = commands.add_parser(name, help="run the approved plan" if name == "run" else "continue the approved plan")
         run.add_argument("--project", required=True)
@@ -332,12 +386,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "doctor":
             result = doctor(args.online, args.gateway_config)
         elif args.command == "plan":
-            script = Path(args.script_file).read_text(encoding="utf-8-sig") if args.script_file else args.text
-            result = create_plan(args.image, script, args.output_dir, args.duration)
+            if args.brief_file:
+                result = create_brief_plan(args.image, _read_json(Path(args.brief_file)), args.output_dir, args.duration)
+            else:
+                script = Path(args.script_file).read_text(encoding="utf-8-sig") if args.script_file else args.text
+                result = create_plan(args.image, script, args.output_dir, args.duration,
+                                     presentation={"style": args.style, "title": args.title})
         elif args.command == "show":
             root = Path(args.project).expanduser().resolve()
             plan, digest = _load_plan(root)
             result = {**plan, "status": "plan_only", "project": str(root), "plan_sha256": digest}
+        elif args.command == "restyle":
+            result = restyle_project(args.project, args.style, args.title, args.output_dir)
         else:
             result = run_project(args.project, confirm=getattr(args, "confirm_allowance", False),
                                  plan_sha256=getattr(args, "plan_sha256", None),

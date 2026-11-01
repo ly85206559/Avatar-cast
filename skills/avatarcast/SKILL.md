@@ -1,6 +1,6 @@
 ---
 name: avatarcast
-description: Set up AvatarCast and create a presenter-led video from an authorized image and script, using the user's approved Grok Bot allowance.
+description: Turn an authorized photo and a one-sentence request into a scripted, styled talking-head video, using the user's approved Grok Bot allowance; restyle completed clips locally.
 ---
 
 # AvatarCast
@@ -17,13 +17,17 @@ If FFmpeg or its `subtitles` filter or `libx264` encoder is missing, help instal
 
 ## Make a video
 
-Get an authorized presenter image, the script, and the desired output directory. Help draft a script when asked; save it as UTF-8 text if that avoids shell encoding problems. For assistant-run commands on Windows PowerShell, set `$env:PYTHONUTF8 = '1'` so captured Chinese output is decoded correctly. If the terminal looks garbled, inspect the saved UTF-8 plan and verify its text before approval. Produce a local plan first:
+The normal input is one authorized photo and one sentence such as “用这张照片介绍我的咖啡店”. Treat that sentence as the production request unless the user asks to speak those exact words. Draft the narration and a short title yourself using the current assistant; no separate text-generation API or key is required. Use only supplied facts; ask a concise question if an essential fact is missing rather than inventing prices or claims.
+
+Default to one short Mandarin clip, vertical 720p, with roughly 30–45 Chinese characters of narration. Follow an explicit requested length or ratio only when supported; explain unsupported requirements before planning. Choose packaging without a style questionnaire: `promo` for recommendations/promotions, `explainer` for knowledge/tutorials, otherwise `clean`. Preserve the user's explicit style preference. Draft a short headline, generally 8–12 Chinese characters. Do not make the user choose colors, fonts, filenames or technical parameters.
+
+Save a UTF-8 brief with `request` (the user's intent), `script` (the actual spoken narration), `title`, and `style` (`clean`, `promo`, `explainer`, or `auto`). Use a new temporary file or project workspace; never overwrite user inputs. For assistant-run commands on Windows PowerShell, set `$env:PYTHONUTF8 = '1'`. Produce a local plan; the output directory is chosen automatically:
 
 ```text
-python -m dhp.cli make plan --image IMAGE --script-file SCRIPT.txt --output-dir NEW_PROJECT
+python -m dhp.cli make plan --image IMAGE --brief-file BRIEF.json
 ```
 
-Run `python -m dhp.cli make show --project NEW_PROJECT` and present the exact segments, estimated lengths, route, image, and known or unknown costs. Retain the `plan_sha256` shown with that plan. Split points and timings are estimates; allow the user to review them. Check the actual account's subscription, allowance and on-demand/overage setting with the user or an available account view. The CLI cannot verify billing or enforce a spending cap. Unknown cost is not zero. Do not submit if the user requires a no-extra-charge guarantee that cannot be established.
+Use the returned `project` path as `NEW_PROJECT`. Run `python -m dhp.cli make show --project NEW_PROJECT` and retain the `plan_sha256`. Present one concise confirmation containing the actual narration, style, estimated duration/segment count, and known or unknown cost. Keep commands, hashes and JSON inside the assistant's work. Check the actual account's subscription, allowance and on-demand/overage setting with the user or an available account view. The CLI cannot verify billing or enforce a spending cap. Unknown cost is not zero. Do not submit if the user requires a no-extra-charge guarantee that cannot be established. Combine questions rather than asking separately for every default.
 
 Only after the user explicitly approves this exact multi-segment plan and its billing conditions, run:
 
@@ -33,6 +37,8 @@ python -m dhp.cli make run --project NEW_PROJECT --plan-sha256 REVIEWED_PLAN_HAS
 
 Use the hash from the plan the user actually reviewed, not a newly computed hash after approval. If the plan changed, show it and obtain approval again. If more than one bot exists, use `dhp native bots` and add `--agent-id`. On interruption or a pending result, use `python -m dhp.cli make resume --project NEW_PROJECT`: it checks existing submissions without resending them, then may start remaining segments covered by the original approval. If the plan or image changes after approval, make a new project and obtain fresh approval. Never delete a job or blindly resubmit an uncertain request.
 
-The result contains a subtitled video, SRT and QA report. Automatic captions use estimated segment timing, not speech alignment; a completed file is ready for human review, not proof of lip sync, identity, exact words, or cross-segment voice consistency. Inspect decoded frames, captions and audio; ask the user to review the result. AI labeling is burned into the edited video; a publication description still needs the label. Publishing is a separate user action.
+The result contains the selected packaging, subtitles, an SRT and QA report. New packaged cuts conservatively shorten long terminal near-silence while keeping original job files. This is not speech recognition; uncertain/quiet clips are preserved and need review. Automatic captions use estimated segment timing, not speech alignment. Inspect decoded frames, captions and audio; deliver the playable video first and explain any observed quality issue briefly. Keep optional files and technical reports out of the main delivery unless requested. AI labeling is burned into the edited video; a publication description still needs the label. Publishing is a separate user action.
+
+When the user says “换成知识讲解风格” or changes only the title, reuse the completed project. Run `python -m dhp.cli make restyle --project NEW_PROJECT --style explainer --title TITLE`. Carry forward the latest title from the current conversation or most recent edited result; omitting the flag uses the original plan's title. This is a local render with zero generation requests and does not need a new provider payment approval. Incomplete jobs cause it to stop; never regenerate merely to change packaging.
 
 For a free synthetic rehearsal, follow the `--dry-run` example in `README.md`: it creates test cards and tones, not real speech or a digital human.

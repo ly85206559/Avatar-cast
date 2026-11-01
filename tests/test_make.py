@@ -222,7 +222,11 @@ def test_resume_without_resubmitting_and_assemble(image, tmp_path, monkeypatch, 
     gateway = Gateway()
     monkeypatch.setattr(make.GatewayClient, "from_config", lambda *_: gateway)
     text = "".join(character * 24 + "。" for character in "甲乙丙"[:segment_count])
-    plan = make.create_plan(str(image), text, str(tmp_path / "project"))
+    if segment_count == 1:
+        plan = make.create_brief_plan(str(image), {"request": "知识讲解", "script": text,
+                                      "title": "测试讲解"}, str(tmp_path / "project"))
+    else:
+        plan = make.create_plan(str(image), text, str(tmp_path / "project"))
     project = plan["project"]
     first = make.run_project(project, confirm=True, plan_sha256=plan["plan_sha256"], wait_seconds=0)
     assert first["status"] == "waiting" and first["segment_status"] == "submission_unknown"
@@ -236,5 +240,6 @@ def test_resume_without_resubmitting_and_assemble(image, tmp_path, monkeypatch, 
     qa = json.loads(Path(result["qa"]).read_text(encoding="utf-8"))
     assert qa["segment_count"] == segment_count and qa["unique_source_count"] == 1
     assert qa["quality_verdict"] == "unverified" and qa["subtitle_review"] == "required"
+    assert qa["presentation"] == plan["presentation"]
     assert make.run_project(project, wait_seconds=0)["status"] == "ready_for_review"
     assert len(gateway.sent) == segment_count

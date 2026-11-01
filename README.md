@@ -8,20 +8,39 @@
 >
 > 许可证：MIT，见 `LICENSE`。贡献先看 `CONTRIBUTING.md`，第一条是标签纪律：代理分数不许说成真分数，演示占位不许说成唇形证据。
 
-## 让 Codex 或 Claude Code 帮你安装并做视频
+## 一张照片，一句话
+
+在 Codex 或 Claude Code 中提供一张授权照片，说出你想做什么：
+
+> 用这张照片，做一段介绍我的咖啡店的口播。
+
+助手会拟好台词和标题、自动选包装风格、安排默认画幅与时长，然后把台词和费用条件一起给你确认。你无需准备脚本文件、选择字体配色或填写模型参数。默认制作一条普通话竖屏短片；第一条真实生成仍需要登录自己的 Grok Bot 账号并确认费用。
+
+| 内容 | 默认包装 |
+| --- | --- |
+| 普通介绍、日常分享 | 简洁口播：简洁标题、清晰字幕 |
+| 产品推荐、推广 | 重点推荐：暖色标题卡、暖色字幕 |
+| 科普、知识、教程 | 知识讲解：蓝色标题卡、清晰字幕 |
+
+生成后直接说“换成知识讲解风格”或“标题改成……”，助手会复用已有原片在本机重新包装，不再次请求生成服务。原片保留，新的包装另存一份。字幕仍按段长估算；包装流程只保守裁去长段尾部近静音，并不能证明语音或口型准确。
+
+### 首次让助手安装
 
 在有本地文件和命令执行权限的 Codex 或 Claude Code 中，可以把下面的话和自己的形象图片、台词交给助手：
 
 ```text
 请克隆 https://github.com/ly85206559/Avatar-cast，阅读 README 和
 skills/avatarcast/SKILL.md，在项目自己的虚拟环境中安装并检查依赖，
-引导我用授权的形象和台词制作视频。先展示分段和费用条件，
+用我提供的照片和一句制作意图，自动写台词、选包装并制作口播。
+先展示台词、风格和费用条件，
 得到我的明确同意后再生成；中断时恢复已有任务，不要重复提交。
 ```
 
 打开克隆后的项目时，Codex 可发现 `.agents/skills/avatarcast`，Claude Code 可发现 `.claude/skills/avatarcast`；两者均读取同一份项目 Skill。如果当前会话尚未发现它，直接让助手读取 `skills/avatarcast/SKILL.md`，或在打开项目后开始新会话。Skill 和 Python 内核都在仓库中，安装其中一份并不会自动提供账号或服务。
 
 **首次准备仍需要你参与**：登录自己的 Grok Bot、准备授权图片、核实订阅与按需费用，并在真实生成前确认。Windows 用户可用下面的脚本导入网关；macOS / Linux 用户参见[连接指南](docs/GROK_SETUP_UNIX.md)。Unix 脚本使用 CLI 的浏览器登录凭据，Linux 模拟测试已通过，但 macOS 和 Unix 平台的真实账号连接尚未验证。Grok Bot 使用非公开网关，版本变化可能导致连接失效。
+
+### 命令行与高级用法
 
 如果希望自己运行命令，在项目根目录安装 `python -m pip install -e ".[native]"`，然后执行：
 
@@ -31,6 +50,10 @@ dhp make doctor                    # 只检查本机，不生成
 dhp make doctor --online           # 额外检查网关和 Bot，不生成
 dhp make plan --image presenter.png --script-file script.txt --output-dir outputs/my-video
 ```
+
+助手也可准备类似 [quick-brief.json](examples/quick-brief.json) 的内容，然后运行 `dhp make plan --image presenter.png --brief-file brief.json`。`request` 是制作意图，`script` 是助手拟好的实际台词，`title` 是标题，`style` 可为 `auto/clean/promo/explainer`。命令行本身不会调用额外语言模型来写稿。省略输出路径时自动在 `outputs/` 下创建新项目。
+
+换包装：`dhp make restyle --project outputs/my-video --style promo --title "新的标题"`。此命令只使用已完成的原片，无法替未完成的片段发起生成。
 
 `script.txt` 使用 UTF-8。计划会自动按标点和长度分段，但时长只是估计；当前路线请求普通话、竖屏和 720p。打开 `outputs/my-video/plan.json`，核对全部台词、段数和费用条件。程序不能核实供应商的账单设置，也不能保证不会出现额外收费。若无法确认费用符合你的要求，先不要提交。
 
