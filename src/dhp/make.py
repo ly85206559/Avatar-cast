@@ -19,6 +19,7 @@ from uuid import uuid4
 from PIL import Image
 
 from . import native
+from . import content_templates
 from .grok_gateway import GatewayClient, GatewayError
 from . import presentation as packaging
 
@@ -65,13 +66,18 @@ def _new_output(parent: Path = Path("outputs")) -> str:
 
 
 def create_plan(image: str, text: str, output_dir: str | None = None, duration: int = 10,
-                *, presentation: dict | None = None, request: str | None = None) -> dict:
+                *, presentation: dict | None = None, request: str | None = None,
+                template: str | None = None) -> dict:
     """Write a reviewable plan locally. No gateway is contacted or media uploaded."""
     root = Path(output_dir or _new_output()).expanduser().resolve()
     if root.exists():
         raise ValueError("Choose a project directory that does not already exist.")
     segments = split_script(text)
-    presentation = packaging.prepare(**(presentation or {}))
+    selection = content_templates.resolve(template, request or "")
+    presentation = dict(presentation or {})
+    if selection and presentation.get("style", "auto") == "auto":
+        presentation["style"] = content_templates.get(selection["id"])["style"]
+    presentation = packaging.prepare(**presentation)
     spec = native.plan(image, segments[0], "select-at-run", str(root / "segment-001"), duration)
     with Image.open(spec["image"]) as presenter:
         if presenter.format not in ("JPEG", "PNG", "WEBP"):
@@ -82,6 +88,7 @@ def create_plan(image: str, text: str, output_dir: str | None = None, duration: 
         "language": "Mandarin", "aspect_ratio": spec["aspect_ratio"], "resolution": spec["resolution"],
         "segments": segments, "estimated_total_duration_sec": duration * len(segments),
         "presentation": presentation,
+        **({"template": selection} if selection else {}),
         **({"request": request} if request else {}),
         "billing": {
             "mode": "existing_allowance", "estimated_cost": None, "quota_consumption": None,
@@ -97,14 +104,22 @@ def create_plan(image: str, text: str, output_dir: str | None = None, duration: 
             "plan_sha256": native._sha256(root / "plan.json")}
 
 
-def create_brief_plan(image: str, brief: dict, output_dir: str | None = None, duration: int = 10) -> dict:
+def create_brief_plan(image: str, brief: dict, output_dir: str | None = None, duration: int = 10,
+                      *, template: str | None = None) -> dict:
     """The host assistant writes the narration; this command never calls an LLM."""
-    if (not isinstance(brief.get("request"), str) or not brief["request"].strip()
-            or not isinstance(brief.get("script"), str) or not brief["script"].strip()):
+    if not isinstance(brief.get("request"), str) or not brief["request"].strip():
         raise ValueError("Brief needs the user's request and an assistant-drafted script.")
-    presentation = packaging.prepare(brief.get("style", "auto"), brief.get("title", ""), brief["request"])
-    return create_plan(image, brief["script"], output_dir, duration,
-                       presentation=presentation, request=brief["request"])
+    template_id = template if template is not None else brief.get("template")
+    selection = content_templates.resolve(template_id, brief["request"])
+    script = content_templates.narration(brief, selection)
+    if not isinstance(script, str) or not script.strip():
+        raise ValueError("Brief needs an assistant-drafted script or filled template beats.")
+    style = brief.get("style", "auto")
+    if selection and style == "auto":
+        style = content_templates.get(selection["id"])["style"]
+    presentation = packaging.prepare(style, brief.get("title", ""), brief["request"])
+    return create_plan(image, script, output_dir, duration, presentation=presentation,
+                       request=brief["request"], template=selection["id"] if selection else None)
 
 
 def _chinese_font_status() -> str:
@@ -227,6 +242,10 @@ def _load_plan(root: Path) -> tuple[dict, str]:
         if (not isinstance(value, dict) or set(value) != {"style", "title"}
                 or packaging.prepare(value["style"], value["title"]) != value):
             raise ValueError("The presentation in the project plan is invalid.")
+    if "template" in plan:
+        content_templates.validate(plan["template"])
+        if "presentation" not in plan:
+            raise ValueError("A template project requires a presentation.")
     return plan, hashlib.sha256(raw).hexdigest()
 
 
@@ -323,7 +342,9 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
             video = output / "final.mp4"
             segments = report.get("segments")
             if (report.get("status") != "assembled" or not video.is_file()
-                    or report.get("presentation") != plan.get("presentation")
+                    or ({k: v for k, v in (report.get("presentation") or {}).items() if k != "pack"}
+                        if plan.get("template") else report.get("presentation")) != plan.get("presentation")
+                    or report.get("template") != plan.get("template")
                     or native._sha256(video) != report.get("video_sha256")
                     or not isinstance(segments, list) or any(not isinstance(s, dict) for s in segments)
                     or [s.get("sha256") for s in segments]
@@ -332,23 +353,39 @@ def run_project(project: str, *, confirm: bool = False, plan_sha256: str | None 
         else:
             from .native_assembly import assemble
 
-            report = assemble(jobs, str(output), presentation=plan.get("presentation"))
+            report = assemble(jobs, str(output), presentation=plan.get("presentation"),
+                              auto_request=(plan.get("request") or "使用已选模板") if plan.get("template") else None,
+                              template=plan.get("template"))
         return {"status": "ready_for_review", "project": str(root),
                 "video": str(output / "final.mp4"), "subtitles": str(output / "subtitles.srt"),
                 "qa": str(output / "qa.json"), "segment_count": len(jobs),
                 "quality_verdict": report.get("quality_verdict"),
+                "template": plan.get("template"),
+                "alignment_status": report.get("alignment", {}).get("status", "not_used"),
+                "warnings": report.get("warnings", []),
                 "notice": "Review speech, lip sync, captions, identity, and voice consistency. "
                           "Subtitle timing is estimated; billing was not verified by this program."}
 
 
 def restyle_project(project: str, style: str, title: str | None = None,
                     output_dir: str | None = None, *, pack: dict | None = None,
-                    request: str | None = None, asr_model: str | None = None) -> dict:
+                    request: str | None = None, asr_model: str | None = None,
+                    template: str | None = None) -> dict:
     """Render completed originals locally; never connect to a generation service."""
     from .native_assembly import assemble
 
     root = Path(project).expanduser().resolve()
     plan, _ = _load_plan(root)
+    selection = content_templates.resolve(template, request or "") if template is not None else plan.get("template")
+    if pack is not None:
+        if template is not None:
+            raise ValueError("Choose a template or an explicit component pack.")
+        selection = None
+    elif selection:
+        request = request or plan.get("request") or "使用已选模板"
+        if style == "auto":
+            style = (plan["presentation"]["style"] if selection == plan.get("template") else
+                     content_templates.get(selection["id"])["style"])
     presentation = packaging.prepare(style, title if title is not None else
                                      plan.get("presentation", {}).get("title", ""), request or plan.get("request", ""), pack)
     jobs = [root / f"segment-{index:03}" for index in range(1, len(plan["segments"]) + 1)]
@@ -358,16 +395,19 @@ def restyle_project(project: str, style: str, title: str | None = None,
             raise ValueError("Existing job does not match the project script.")
     output = Path(output_dir or _new_output(root / "edits")).expanduser().resolve()
     report = assemble([str(p) for p in jobs], str(output), presentation=presentation,
-                      auto_request=request, asr_model=asr_model)
+                      auto_request=request, asr_model=asr_model, template=selection)
     return {"status": "ready_for_review", "project": str(root), "video": str(output / "final.mp4"),
             "qa": str(output / "qa.json"), "presentation": report["presentation"], "generation_requests": 0,
             "alignment_status": report.get("alignment", {}).get("status", "not_used"),
+            "template": report.get("template"),
             "warnings": report.get("warnings", [])}
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dhp make")
     commands = parser.add_subparsers(dest="command", required=True)
+    catalog = commands.add_parser("templates", help="list templates or show narrative slots and requirements")
+    catalog.add_argument("template_id", nargs="?", choices=content_templates.IDS)
     check = commands.add_parser("doctor", help="check requirements without generating")
     check.add_argument("--online", action="store_true", help="also check gateway connectivity")
     check.add_argument("--gateway-config")
@@ -381,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     create.add_argument("--style", choices=["auto", *packaging.STYLES], default="auto")
     create.add_argument("--title", default="")
     create.add_argument("--duration", type=int, default=10)
+    create.add_argument("--template", choices=["auto", *content_templates.IDS])
     show = commands.add_parser("show", help="show the exact local plan and its review hash")
     show.add_argument("--project", required=True)
     restyle = commands.add_parser("restyle", help="change packaging locally without generating again")
@@ -393,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
     restyle.add_argument("--pack-file", help="local component timeline JSON; never generates media")
     restyle.add_argument("--request", help="one-sentence local packaging request; selects recipe and tries local ASR")
     restyle.add_argument("--asr-model", help="local Vosk Chinese model directory; otherwise VOSK_MODEL_PATH")
+    restyle.add_argument("--template", choices=["auto", *content_templates.IDS])
     for name in ("run", "resume"):
         run = commands.add_parser(name, help="run the approved plan" if name == "run" else "continue the approved plan")
         run.add_argument("--project", required=True)
@@ -405,15 +447,19 @@ def main(argv: list[str] | None = None) -> int:
             run.add_argument("--plan-sha256", help="hash shown when the plan was reviewed")
     args = parser.parse_args(argv)
     try:
-        if args.command == "doctor":
+        if args.command == "templates":
+            result = content_templates.get(args.template_id) if args.template_id else {
+                "templates": [content_templates.get(k) for k in content_templates.IDS]}
+        elif args.command == "doctor":
             result = doctor(args.online, args.gateway_config)
         elif args.command == "plan":
             if args.brief_file:
-                result = create_brief_plan(args.image, _read_json(Path(args.brief_file)), args.output_dir, args.duration)
+                result = create_brief_plan(args.image, _read_json(Path(args.brief_file)), args.output_dir,
+                                           args.duration, template=args.template)
             else:
                 script = Path(args.script_file).read_text(encoding="utf-8-sig") if args.script_file else args.text
                 result = create_plan(args.image, script, args.output_dir, args.duration,
-                                     presentation={"style": args.style, "title": args.title})
+                                     presentation={"style": args.style, "title": args.title}, template=args.template)
         elif args.command == "show":
             root = Path(args.project).expanduser().resolve()
             plan, digest = _load_plan(root)
@@ -422,18 +468,25 @@ def main(argv: list[str] | None = None) -> int:
             pack = _read_json(Path(args.pack_file)) if args.pack_file else None
             if args.project:
                 result = restyle_project(args.project, args.style, args.title, args.output_dir,
-                                         pack=pack, request=args.request, asr_model=args.asr_model)
+                                         pack=pack, request=args.request, asr_model=args.asr_model, template=args.template)
             else:
                 from .native_assembly import assemble
 
                 output = Path(args.output_dir or _new_output(Path(args.job_dir) / "edits")).resolve()
+                selection = content_templates.resolve(args.template, args.request or "")
+                if args.template is not None and pack is not None:
+                    raise ValueError("Choose a template or an explicit component pack.")
+                style = content_templates.get(selection["id"])["style"] if selection and args.style == "auto" else args.style
                 report = assemble([args.job_dir], str(output), presentation=packaging.prepare(
-                    args.style, args.title or "", args.request or "", pack),
-                    auto_request=args.request, asr_model=args.asr_model)
+                    style, args.title or "", args.request or "", pack),
+                    auto_request=args.request or ("使用已选模板" if selection else None),
+                    asr_model=args.asr_model, template=selection)
                 result = {"status": "ready_for_review", "video": str(output / "final.mp4"),
                           "qa": str(output / "qa.json"), "presentation": report["presentation"],
                           "alignment_status": report.get("alignment", {}).get("status", "not_used"),
                           "warnings": report.get("warnings", []), "generation_requests": 0}
+                if selection:
+                    result["template"] = selection
         else:
             result = run_project(args.project, confirm=getattr(args, "confirm_allowance", False),
                                  plan_sha256=getattr(args, "plan_sha256", None),

@@ -1,0 +1,11 @@
+{
+  "timing": "estimated",
+  "components": [
+    {
+      "use": "KeywordEmphasis",
+      "at": 1,
+      "until": 4.5,
+      "text": "先验证，再继续"
+    }
+  ]
+}

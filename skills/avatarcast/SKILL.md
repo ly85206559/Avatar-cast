@@ -1,6 +1,6 @@
 ---
 name: avatarcast
-description: Set up AvatarCast and turn an authorized photo and a one-sentence request into a finished talking-head video, with billing review before generation and local automatic packaging.
+description: Turn an authorized photo and one-sentence request into a talking-head video using product, knowledge or empathy templates, with billing review and local packaging; restyle completed clips.
 ---
 
 # AvatarCast
@@ -31,9 +31,11 @@ If FFmpeg or its `subtitles` filter or `libx264` encoder is missing, help instal
 
 The normal input is one authorized photo and one sentence such as “用这张照片介绍我的咖啡店”. Treat that sentence as the production request unless the user asks to speak those exact words. Draft the narration and a short title yourself using the current assistant; no separate text-generation API or key is required. Use only supplied facts; ask a concise question if an essential fact is missing rather than inventing prices or claims.
 
-Default to one approximately 10-second Mandarin clip, vertical 720p, with roughly 30–45 Chinese characters of narration. Follow an explicit requested length or ratio only when supported; explain unsupported requirements before planning. Choose packaging without a style questionnaire: `promo` for recommendations/promotions, `explainer` for knowledge/tutorials, `warm` for encouragement/empathy, otherwise `clean`. Preserve the user's explicit style preference. Draft a short headline, generally 8–12 Chinese characters. Do not make the user choose colors, fonts, filenames or technical parameters.
+Default to one approximately 10-second Mandarin clip, vertical 720p, with roughly 30–45 Chinese characters of narration. Choose a content template by meaning without a questionnaire: `product-intro` for product recommendations, `knowledge-share` for explaining a question or method, `empathy` for encouragement or emotional support. Keep the plain `clean` route for generic introductions. Preserve explicit preferences and explain unsupported formats before planning. Draft a short headline; do not ask the user to choose fonts or technical parameters.
 
-Save a UTF-8 brief with `request` (the user's intent), `script` (the actual spoken narration), `title`, and `style` (`clean`, `promo`, `explainer`, `warm`, or `auto`). Use a new temporary file or project workspace; never overwrite user inputs. For assistant-run commands on Windows PowerShell, set `$env:PYTHONUTF8 = '1'`. Produce a local plan; the output directory is chosen automatically:
+Run `python -m dhp.cli make templates TEMPLATE_ID` for the selected template. Read its narrative slots, required facts, format and fallback. Draft its three `structure[].key` slots in order: product audience/benefit/fit, knowledge question/explanation/takeaway, or empathy situation/reframe/action. These are internal writing guidance, not a user form. Ask only for missing essential facts; never invent product features, prices, evidence or testimonials. Product templates currently support speech and text cards, not product footage. The preview GIFs reuse test dialogue, not new topic-specific performances. See `templates/README.md` when the user wants examples.
+
+Save a UTF-8 brief with `request`, `template`, `title`, and the drafted `beats`; omit `script` so the CLI joins the slots and adds missing sentence-end punctuation. If both are supplied, they must match exactly. Explicit `style` overrides the default appearance. For plain non-template narration, retain the existing request/script/title/style brief. Use a new temporary file; never overwrite user inputs. On Windows PowerShell set `$env:PYTHONUTF8 = '1'`. Produce the local plan:
 
 ```text
 python -m dhp.cli make plan --image IMAGE --brief-file BRIEF.json
@@ -51,21 +53,23 @@ Use the hash from the plan the user actually reviewed, not a newly computed hash
 
 `waiting` / `awaiting_result` means the existing request still lacks a verified final receipt. Show a short progress update and keep polling that request, without asking to regenerate. For the first 120 seconds, an idle bot with only an initial reply is not itself a failure; explicit approval requests or a bot awaiting user input still stop promptly. After the grace period, `needs_attention` requires inspecting the existing response rather than blindly retrying. CLI exit code 2 represents a non-final state, not permission to submit again.
 
-Once generation is complete, finish the default workflow with local automatic packaging; do not wait for a separate restyle request. Read `docs/LOCAL_PACKAGING.md` and run:
+Template projects already attempt local packaging in `make run` / `resume` and return alignment status and warnings. Set `VOSK_MODEL_PATH` before running them. If the result matches current preferences, inspect and deliver it without a redundant render. For plain projects or changed preferences, read `docs/LOCAL_PACKAGING.md` and run:
 
 ```text
 python -m dhp.cli make restyle --project NEW_PROJECT --request ORIGINAL_REQUEST --style CHOSEN_STYLE --title TITLE
 ```
 
-Use the original production intent and the reviewed style/title, properly quoted for the shell; add `--asr-model MODEL_DIRECTORY` if the model is not configured through the environment. This reuses completed originals, preserves their full normalized duration, and submits no generation. Missing setup or unreliable recognition yields simple estimated captions with a warning; disclose that fallback. The earlier `make run` cut uses estimated captions and conservative terminal near-silence trimming, so deliver the final restyled output path returned by this command, not the earlier cut. For a packaging/title change, reuse the completed project and latest conversational preferences rather than regenerating video.
+Use the original intent and latest style/title, properly quoted; add `--asr-model MODEL_DIRECTORY` if needed. This reuses completed originals, preserves full normalized duration and submits no generation. A template project inherits its saved template; add `--template TEMPLATE_ID` when changing it. Disclose simple-caption fallback if setup or recognition is unreliable. For plain projects the earlier `make run` cut uses estimated captions and conservative tail trimming; deliver the final restyled output, not that earlier cut.
 
 Inspect decoded representative frames and card transitions, and play the final video to check audible speech, readable captions, face/mouth obstruction and the ending. A QA file or successful ASR match alone does not prove lip-sync or speech accuracy. If playback or a check is unavailable, say what remains unverified. Deliver the playable final MP4 first, the SRT if available, and a short note on actual generation submissions, verifiable allowance/cost and any review needed; do not call unknown charges zero. Keep optional technical reports out of the main delivery unless requested. Preserve the burned-in AI label. A publication description still needs the label; publishing is a separate user action.
 
-When the user says “换成知识讲解风格” or changes only the title, reuse the completed project with the same automatic packaging command and the updated request/style/title. Carry forward the latest title from the current conversation or most recent edited result; omitting the flag uses the original plan's title. This is a local render with zero generation requests and does not need a new provider payment approval. Incomplete jobs cause it to stop; never regenerate merely to change packaging.
+When the user says “换成知识讲解风格”, reuse the project and add `--template knowledge-share`; map the other supported templates similarly. This changes presentation of existing content, not speech. Carry forward the latest title; omitting it uses the original plan title. Local rendering submits zero generation requests and needs no new provider payment approval. Incomplete jobs stop; never regenerate merely to change packaging.
 
 For a free synthetic rehearsal, follow the `--dry-run` example in `README.md`: it creates test cards and tones, not real speech or a digital human.
 
 ## Component packaging of completed clips
+
+When asked which effects are available, show `docs/COMPONENT_GALLERY.md`: eight actual silent GIFs, natural-language requests and examples. Prefer a complete template for first use. For individual components, read only the relevant `examples/components/` files and adapt their text, sources and times to the actual clip. These examples quote a specific pilot, not generic facts.
 
 For content-aware local packaging, read `docs/LOCAL_PACKAGING.md`. Prefer `make restyle --project NEW_PROJECT --request "把这条做成知识分享"`: this automatically selects a promo, explainer or warm recipe and attempts local Vosk sentence matching, without writing a component timeline yourself. A completed old native job can use `--job-dir` instead. Reuse the ASR dependency and Chinese model from the one-time setup above; never silently switch to a paid service. Missing setup, mismatched words or low confidence produce simple estimated captions and a review warning. Tell the user when this fallback occurs. Recognizer timestamps are estimates, not forced word alignment or human approval. No media is uploaded and no generation is submitted.
 

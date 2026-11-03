@@ -1,0 +1,40 @@
+{
+  "id": "empathy",
+  "label": "情感共鸣",
+  "style": "warm",
+  "purpose": "说中一种具体处境，温和回应，并给一个小行动。",
+  "structure": [
+    {
+      "key": "situation",
+      "label": "说中处境",
+      "instruction": "描述用户指定的感受，不假装知道观众的个人经历。"
+    },
+    {
+      "key": "reframe",
+      "label": "温和回应",
+      "instruction": "用克制的安慰或新视角，不承诺治疗或保证效果。"
+    },
+    {
+      "key": "action",
+      "label": "一个小行动",
+      "instruction": "给一个容易做到的建议，留一句温和收束。"
+    }
+  ],
+  "required_facts": [
+    "想回应的处境或情绪"
+  ],
+  "prompt": "用情感共鸣模板，鼓励一下觉得自己进步太慢的人。",
+  "version": 1,
+  "format": {
+    "language": "Mandarin",
+    "aspect_ratio": "9:16",
+    "resolution": "720p",
+    "duration_sec_per_segment": 10
+  },
+  "components": [
+    "TextCard",
+    "KeywordEmphasis"
+  ],
+  "fallback": "语音匹配不可靠时仅保留标题与估算字幕；仍需播放复核。",
+  "billing": "新口播需确认账号额度与可能费用；复用原片包装不提交生成。"
+}

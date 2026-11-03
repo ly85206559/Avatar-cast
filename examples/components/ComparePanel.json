@@ -1,0 +1,19 @@
+{
+  "timing": "estimated",
+  "components": [
+    {
+      "use": "ComparePanel",
+      "at": 1,
+      "until": 4.5,
+      "dimension": "同一原片的呈现方式",
+      "left": {
+        "title": "原片",
+        "text": "画面与原声"
+      },
+      "right": {
+        "title": "本地包装",
+        "text": "字幕与信息卡"
+      }
+    }
+  ]
+}

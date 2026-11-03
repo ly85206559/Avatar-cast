@@ -1,0 +1,11 @@
+{
+  "timing": "estimated",
+  "components": [
+    {
+      "use": "HostReframe",
+      "at": 1,
+      "until": 4.5,
+      "scale": 1.12
+    }
+  ]
+}

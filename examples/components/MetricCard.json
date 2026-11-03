@@ -1,0 +1,14 @@
+{
+  "timing": "estimated",
+  "components": [
+    {
+      "use": "MetricCard",
+      "at": 1,
+      "until": 4.5,
+      "value": "3",
+      "unit": "项",
+      "label": "画面、声音与字幕",
+      "source": "本条测试口播提及的检查项"
+    }
+  ]
+}

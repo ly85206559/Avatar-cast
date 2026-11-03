@@ -1,0 +1,13 @@
+{
+  "timing": "estimated",
+  "components": [
+    {
+      "use": "EvidenceFocus",
+      "at": 1,
+      "until": 4.5,
+      "claim": "先验证，再继续",
+      "evidence": "我们先验证画面、声音和字幕是否同步。",
+      "source": "本条原片台词摘录"
+    }
+  ]
+}

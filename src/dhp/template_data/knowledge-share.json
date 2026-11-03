@@ -1,0 +1,40 @@
+{
+  "id": "knowledge-share",
+  "label": "知识分享",
+  "style": "explainer",
+  "purpose": "用一个问题、一个解释和一个结论，讲清一个小知识。",
+  "structure": [
+    {
+      "key": "question",
+      "label": "提出问题",
+      "instruction": "只讲一个核心问题，首次约十秒。"
+    },
+    {
+      "key": "explanation",
+      "label": "解释或举例",
+      "instruction": "用准确、简单的解释或已核实的步骤，不补造数据。"
+    },
+    {
+      "key": "takeaway",
+      "label": "一句话带走",
+      "instruction": "回到开头的问题，留下可记住或可执行的结论。"
+    }
+  ],
+  "required_facts": [
+    "一个具体主题或问题"
+  ],
+  "prompt": "用知识分享模板，讲讲下班后怎样让自己放松。",
+  "version": 1,
+  "format": {
+    "language": "Mandarin",
+    "aspect_ratio": "9:16",
+    "resolution": "720p",
+    "duration_sec_per_segment": 10
+  },
+  "components": [
+    "TextCard",
+    "StepProgress"
+  ],
+  "fallback": "语音匹配不可靠时仅保留标题与估算字幕；仍需播放复核。",
+  "billing": "新口播需确认账号额度与可能费用；复用原片包装不提交生成。"
+}

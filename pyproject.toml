@@ -25,3 +25,6 @@ dhp = "dhp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+dhp = ["template_data/*.json"]

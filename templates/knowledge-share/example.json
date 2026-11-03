@@ -1,0 +1,10 @@
+{
+  "template": "knowledge-share",
+  "request": "讲讲下班后怎样让自己放松",
+  "title": "给自己一点放松时间",
+  "beats": {
+    "question": "下班后，怎样让自己放松？",
+    "explanation": "先放下工作消息，再散步十分钟。",
+    "takeaway": "给自己一点安静的时间。"
+  }
+}

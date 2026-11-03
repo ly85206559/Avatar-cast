@@ -123,7 +123,7 @@ def _tail_duration(video: Path, duration: float, ffmpeg: str) -> float:
 
 def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
              presentation: dict | None = None, *, auto_request: str | None = None,
-             asr_model: str | None = None) -> dict:
+             asr_model: str | None = None, template: dict | None = None) -> dict:
     """Produce an experimental subtitled cut from completed native jobs.
 
     The input hashes are checked before rendering. Default captions divide each
@@ -133,6 +133,12 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
     """
     if not job_dirs:
         raise ValueError("At least one completed native job is required.")
+    if template is not None:
+        from . import content_templates
+
+        content_templates.validate(template)
+        if auto_request is None or presentation is None:
+            raise ValueError("A template requires automatic packaging and a presentation.")
     if auto_request is not None and (not isinstance(auto_request, str) or not auto_request.strip()):
         raise ValueError("A non-empty packaging request is required.")
     if auto_request is not None and presentation is None:
@@ -215,7 +221,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             from . import auto_pack
 
             automatic = auto_pack.prepare(str(raw), "".join(item["text"] for item in inputs),
-                                          raw_duration, presentation["style"], presentation["title"], asr_model)
+                                          raw_duration, presentation["style"], presentation["title"], asr_model,
+                                          template=template)
             pack = automatic["pack"]
             presentation = {**presentation, "pack": pack}
         timing_scale = min(1.0, raw_duration / sum(item["duration_sec"] for item in inputs))
@@ -303,6 +310,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
                          if unique_sources < len(inputs) else ""),
         }
         if automatic:
+            if template is not None:
+                report["template"] = template
             report.update(auto_request=auto_request, alignment=automatic["alignment"], warnings=automatic["warnings"],
                           subtitle_timing=("vosk_matched_sentence_bounds" if automatic["alignment"]["status"] == "matched"
                                            else "estimated_from_segment_container_duration"))

@@ -1,0 +1,16 @@
+{
+  "timing": "estimated",
+  "components": [
+    {
+      "use": "RecapBoard",
+      "at": 1,
+      "until": 4.5,
+      "title": "三项检查",
+      "items": [
+        "看画面",
+        "听声音",
+        "核对字幕"
+      ]
+    }
+  ]
+}

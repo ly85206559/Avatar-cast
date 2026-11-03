@@ -59,6 +59,8 @@ macOS / Linux：按[专门指南](GROK_SETUP_UNIX.md)登录第三方 `grok-bot` 
 
 ## 3. 写稿并查看计划
 
+可先选[产品／知识／情感模板](../templates/README.md)，让助手填写示例 brief 的三段文案。`dhp make templates` 查看列表，`dhp make templates product-intro` 查看槽位。`plan --brief-file templates/product-intro/example.json` 会保存模板 ID 与版本；生成前仍需核对完整计划。
+
 准备授权图片 `presenter.png` 与 UTF-8 台词文件 `script.txt`，选择一个新的输出目录：
 
 ```text
@@ -103,6 +105,8 @@ dhp make resume --project outputs/my-video
 
 ## 5. 本地包装与交付
 
+模板计划在 `run` / `resume` 完成后已自动尝试包装，使用返回的视频与警告。先设置 `VOSK_MODEL_PATH`；缺模型会降级。`restyle` 默认沿用计划模板，切换时传 `--template product-intro`、`--template knowledge-share` 或 `--template empathy`。原对白不变；显式模板与 `--pack-file` 不同用。
+
 生成完成后，使用实际制作意图选择配方，例如：
 
 ```text
@@ -113,7 +117,7 @@ dhp make restyle --project outputs/my-video --request "把这条做成知识分�
 
 修改标题时显式传入最新标题；省略 `--title` 会使用原计划标题。旧版单段任务可用 `--job-dir` 代替 `--project`。
 
-交付 `restyle` 返回的新目录中的 `final.mp4`，同时保留原片、SRT 与 QA 记录。之前 `make run` 产出的 `result/final.mp4` 是较早版本，字幕按段长估算。检查实际对白、字幕时间、口型和结尾；机器检查不等于人工验收。成片保留 AI 标识，发布时描述栏也需标识，发布本身需另外决定。
+交付最新命令返回的 `final.mp4`，同时保留原片、SRT 与 QA 记录。无模板项目在 `make run` 产出的 `result/final.mp4` 是较早版本，字幕按段长估算。检查实际对白、字幕时间、口型和结尾；机器检查不等于人工验收。成片保留 AI 标识，发布时描述栏也需标识，发布本身需另外决定。
 
 ## 低层单段入口
 

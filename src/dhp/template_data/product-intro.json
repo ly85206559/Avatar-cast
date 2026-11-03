@@ -1,0 +1,42 @@
+{
+  "id": "product-intro",
+  "label": "产品推荐",
+  "style": "promo",
+  "purpose": "把已确认的产品特点讲清楚，适合单个卖点的短口播。",
+  "structure": [
+    {
+      "key": "audience",
+      "label": "谁会需要",
+      "instruction": "用一个具体使用情境开场，不虚构痛点。"
+    },
+    {
+      "key": "benefit",
+      "label": "一个卖点",
+      "instruction": "只讲用户提供的特点；没有商品图时不声称展示了实物。"
+    },
+    {
+      "key": "fit",
+      "label": "适用建议",
+      "instruction": "说明适合谁或怎样选择；不编造优惠、销量或效果。"
+    }
+  ],
+  "required_facts": [
+    "产品是什么",
+    "至少一个已确认的特点"
+  ],
+  "prompt": "用产品推荐模板，介绍这款轻便保温杯，强调通勤携带方便。",
+  "version": 1,
+  "format": {
+    "language": "Mandarin",
+    "aspect_ratio": "9:16",
+    "resolution": "720p",
+    "duration_sec_per_segment": 10
+  },
+  "components": [
+    "TextCard",
+    "KeywordEmphasis",
+    "HostReframe"
+  ],
+  "fallback": "语音匹配不可靠时仅保留标题与估算字幕；仍需播放复核。",
+  "billing": "新口播需确认账号额度与可能费用；复用原片包装不提交生成。"
+}

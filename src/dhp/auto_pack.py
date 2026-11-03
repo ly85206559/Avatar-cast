@@ -95,7 +95,7 @@ def recipe(style: str, title: str, cues: list[dict], duration: float, matched: b
 
 
 def prepare(video: str, text: str, duration: float, style: str, title: str,
-            model_path: str | None = None) -> dict:
+            model_path: str | None = None, *, template: dict | None = None) -> dict:
     words = []
     try:
         words = VoskASRProvider(model_path).transcribe(video)
@@ -103,8 +103,17 @@ def prepare(video: str, text: str, duration: float, style: str, title: str,
     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
         alignment = {"status": "fallback", "reason": "local_asr_unavailable", "detail": str(exc), "cues": []}
     matched = alignment["status"] == "matched"
+    if template is not None:
+        from . import content_templates
+
+        pack = content_templates.recipe(template, title, alignment["cues"], duration, matched)
+    else:
+        pack = recipe(style, title, alignment["cues"], duration, matched)
+    warnings = [] if matched else ["语音匹配不可靠或本地识别不可用：已降级为简单字幕，请复核台词与时间。"]
+    if template is not None and matched and len(pack["components"]) == 1:
+        warnings.append("语音已匹配，但缺少适合卡片长度的短句：仅保留标题，请缩短文案或人工调整包装。")
     return {"alignment": {**alignment, "engine": "vosk", "minimum_word_confidence": 0.8,
                            "word_times_are": "recognizer_estimates_not_forced_alignment",
                            "review_required": True, "words": words},
-            "pack": recipe(style, title, alignment["cues"], duration, matched),
-            "warnings": [] if matched else ["语音匹配不可靠或本地识别不可用：已降级为简单字幕，请复核台词与时间。"]}
+            "pack": pack,
+            "warnings": warnings}
