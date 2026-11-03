@@ -68,4 +68,4 @@ dhp make doctor --online
 
 ## 4. 制作视频
 
-回到 [README 的引导流程](../README.md#让-codex-或-claude-code-帮你安装并做视频)：先准备授权图片和 UTF-8 文案，通过 `dhp make plan` / `show` 核对全部分段；确认实际费用后才运行 `dhp make run`。如任务中断，使用 `dhp make resume` 查询已有任务，勿删除回执或重复提交。
+继续阅读[命令行指南](CLI_GUIDE.md#3-写稿并查看计划)：先准备授权图片和 UTF-8 文案，通过 `dhp make plan` / `show` 核对全部分段；确认实际费用后才运行 `dhp make run`。如任务中断，使用 `dhp make resume` 查询已有任务，勿删除回执或重复提交。

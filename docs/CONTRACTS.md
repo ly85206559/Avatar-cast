@@ -61,4 +61,4 @@
 }
 ```
 
-阈值见 README §5，先定默认值，跑 Benchmark 后再调，不要凭感觉改阈值。
+默认阈值见 [`src/dhp/qa.py`](../src/dhp/qa.py)，测量范围与调整方法见 [QA_BENCHMARK.md](QA_BENCHMARK.md)；不要凭感觉改阈值。
