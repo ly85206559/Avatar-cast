@@ -1,6 +1,8 @@
 # 已有原片的本地组件包装
 
-想直接选成品结构，先看[三个内容模板](../templates/README.md)；想指定某个效果，先看[8 个组件的实际动图与用法](COMPONENT_GALLERY.md)。模板项目会在 `run` / `resume` 完成后自动尝试包装；已有原片可用 `make restyle --template ID`，不会重新生成对白。
+想直接选成品结构，先看[内容模板](../templates/README.md)；想指定某个效果，先看[8 个组件的实际动图与用法](COMPONENT_GALLERY.md)。模板项目会在 `run` / `resume` 完成后自动尝试包装；已有原片可用 `make restyle --template ID`，不会重新生成对白。三点干货需要计划中保存对应的三个方法，否则只保留标题并提示。
+
+演示种草可额外使用一份本地图片或视频：`make restyle --job-dir JOB --template product-demo --asset MEDIA`。有展示文案角色时按角色定位，否则按总时长估算；结果需播放复核。素材音轨静音，主播原声保留。替换素材使用新的编辑输出，不改原计划。
 
 8 个组件已接入 `dhp make restyle` 与原生视频组装。它们由现有 Python／FFmpeg 渲染，不需要新的模型账号、Node 或付费生成。现阶段支持文字卡片与景别变化；证据聚焦呈现有来源的文字摘录，对比呈现文本双栏，截图推近和真实商品画中画尚未接入。
 

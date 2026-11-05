@@ -16,17 +16,18 @@ def test_template_slots_become_reviewed_narration_without_gateway(tmp_path, monk
     Image.new("RGB", (32, 48), "white").save(image)
     item = content_templates.get(template_id)
     roles = [s["key"] for s in item["structure"]]
+    phrases = [f"第{n + 1}句话" for n in range(len(roles))]
     brief = {"template": template_id, "request": "制作一条短口播", "title": "测试标题",
-             "beats": dict(zip(roles, ["第一句话", "第二句话", "最后一句"]))}
+             "beats": dict(zip(roles, phrases))}
     plan = make.create_brief_plan(str(image), brief, str(tmp_path / "project"))
-    assert "".join(plan["segments"]) == "第一句话。第二句话。最后一句。"
+    assert "".join(plan["segments"]) == "".join(p + "。" for p in phrases)
     assert plan["template"] == {"id": template_id, "version": 1}
     assert plan["presentation"]["style"] == item["style"]
     assert not (Path(plan["project"]) / "approval.json").exists()
     brief["beats"].pop(roles[0])
     with pytest.raises(ValueError, match="slots"):
         make.create_brief_plan(str(image), brief, str(tmp_path / "invalid"))
-    brief["beats"][roles[0]] = "第一句话"
+    brief["beats"][roles[0]] = phrases[0]
     brief["script"] = "未审核的另一份台词"
     with pytest.raises(ValueError, match="differs"):
         make.create_brief_plan(str(image), brief, str(tmp_path / "invalid"))
@@ -55,7 +56,7 @@ def test_template_auto_selection_explicit_style_and_plan_tampering(tmp_path, mon
     assert content_templates.resolve("auto", "普通自我介绍") is None
 
 
-@pytest.mark.parametrize("template_id", content_templates.IDS)
+@pytest.mark.parametrize("template_id", ("product-intro", "knowledge-share", "empathy"))
 def test_template_project_run_reuses_completed_job_and_preserves_source(tmp_path, monkeypatch, template_id):
     ffmpeg = native_assembly._find_ffmpeg(None)
     if not all(make.doctor()["ffmpeg"].values()):

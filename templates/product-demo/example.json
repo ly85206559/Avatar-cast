@@ -1,0 +1,11 @@
+{
+  "template": "product-demo",
+  "request": "用演示种草模板介绍 AvatarCast，并展示一张已有的界面截图",
+  "title": "试试数字人口播",
+  "beats": {
+    "hook": "想试试数字人口播？",
+    "problem": "做视频时还要处理字幕。",
+    "demo": "AvatarCast可以添加字幕和重点文字。",
+    "fit": "先用已有原片试试吧。"
+  }
+}

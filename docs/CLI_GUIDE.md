@@ -59,7 +59,7 @@ macOS / Linux：按[专门指南](GROK_SETUP_UNIX.md)登录第三方 `grok-bot` 
 
 ## 3. 写稿并查看计划
 
-可先选[产品／知识／情感模板](../templates/README.md)，让助手填写示例 brief 的三段文案。`dhp make templates` 查看列表，`dhp make templates product-intro` 查看槽位。`plan --brief-file templates/product-intro/example.json` 会保存模板 ID 与版本；生成前仍需核对完整计划。
+可先选[三点干货／演示种草／产品／知识／情感模板](../templates/README.md)，让助手填写示例 brief 的文案结构。`dhp make templates` 查看列表，`dhp make templates product-demo` 查看槽位。演示种草可通过 brief 的 `asset` 或 `plan --asset LOCAL_FILE` 添加一份本地图片或视频，计划保存文件哈希；生成前仍需核对完整计划。
 
 准备授权图片 `presenter.png` 与 UTF-8 台词文件 `script.txt`，选择一个新的输出目录：
 
@@ -105,7 +105,7 @@ dhp make resume --project outputs/my-video
 
 ## 5. 本地包装与交付
 
-模板计划在 `run` / `resume` 完成后已自动尝试包装，使用返回的视频与警告。先设置 `VOSK_MODEL_PATH`；缺模型会降级。`restyle` 默认沿用计划模板，切换时传 `--template product-intro`、`--template knowledge-share` 或 `--template empathy`。原对白不变；显式模板与 `--pack-file` 不同用。
+模板计划在 `run` / `resume` 完成后已自动尝试包装，使用返回的视频与警告。先设置 `VOSK_MODEL_PATH`；缺模型会降级。`restyle` 默认沿用计划模板，也可显式切换模板。三点干货只有在原计划保存了三个方法时才自动安排三张卡片；演示种草可用 `--template product-demo --asset LOCAL_FILE` 为旧原片添加素材与主播小窗，展示区间按时长估算并需复核。素材视频的声音静音，原对白不变；显式模板与 `--pack-file` 不同用。
 
 生成完成后，使用实际制作意图选择配方，例如：
 

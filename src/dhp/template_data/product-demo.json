@@ -1,0 +1,19 @@
+{
+  "id": "product-demo",
+  "label": "演示种草",
+  "style": "promo",
+  "purpose": "从具体场景切入，用用户提供的素材展示已确认的产品特点，再给出适用建议。",
+  "structure": [
+    {"key": "hook", "label": "开场", "instruction": "用简短问题或具体场景吸引注意。"},
+    {"key": "problem", "label": "使用情境", "instruction": "说明真实需求，不虚构用户经历。"},
+    {"key": "demo", "label": "展示特点", "instruction": "讲一个已确认的产品特点，素材画面在这里出现。"},
+    {"key": "fit", "label": "适用建议", "instruction": "说明适合谁或给出合理的下一步，不编造评价与优惠。"}
+  ],
+  "required_facts": ["产品是什么", "至少一个已确认的特点"],
+  "prompt": "用演示种草模板，介绍我的产品，并展示这张产品图。",
+  "version": 1,
+  "format": {"language": "Mandarin", "aspect_ratio": "9:16", "resolution": "720p", "duration_sec_per_segment": 10},
+  "components": ["TextCard", "KeywordEmphasis", "ShowcaseWithPresenter"],
+  "fallback": "无素材时保持全屏口播；缺少可靠时间时按文案或总时长估算展示区间，需播放复核。",
+  "billing": "新口播需确认账号额度与可能费用；已有素材展示和本地重包不提交生成。"
+}

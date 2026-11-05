@@ -1,0 +1,20 @@
+{
+  "id": "three-point",
+  "label": "三点干货",
+  "style": "explainer",
+  "purpose": "用一句开场、三个简短方法和一句收尾，讲清一个具体问题。",
+  "structure": [
+    {"key": "hook", "label": "开场", "instruction": "用一句短话点明具体问题或场景。"},
+    {"key": "point_1", "label": "第一个方法", "instruction": "说第一个方法，最多 18 字。"},
+    {"key": "point_2", "label": "第二个方法", "instruction": "说第二个方法，最多 18 字。"},
+    {"key": "point_3", "label": "第三个方法", "instruction": "说第三个方法，最多 18 字。"},
+    {"key": "closing", "label": "一句收尾", "instruction": "用简短结论或小行动结束。"}
+  ],
+  "required_facts": ["一个具体主题；涉及个人产品或专业事实时需要可靠信息"],
+  "prompt": "用三点干货模板，分享三个下班放松的方法。",
+  "version": 1,
+  "format": {"language": "Mandarin", "aspect_ratio": "9:16", "resolution": "720p", "duration_sec_per_segment": 10},
+  "components": ["TextCard", "KeywordEmphasis", "HostReframe"],
+  "fallback": "单段语音匹配失败时按文案长度估算三个方法的切换时间；必须播放复核。多段匹配失败时仅保留标题。",
+  "billing": "新口播需确认账号额度与可能费用；复用原片包装不提交生成。"
+}

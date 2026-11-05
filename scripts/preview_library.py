@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from dhp import content_templates, make, native_assembly, presentation
+from dhp import make, native_assembly, presentation
 
 
 def main():
@@ -43,7 +43,7 @@ def main():
             "fps=6,scale=216:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=bayer",
             "-loop", "0", public / (name + ".gif"))
 
-    for template_id in content_templates.IDS:
+    for template_id in ("product-intro", "knowledge-share", "empathy"):
         directory = output / template_id
         if make.main(["restyle", "--job-dir", args.template_job_dir, "--template", template_id,
                       "--title", "同一原片的包装预览", "--output-dir", str(directory),

@@ -95,7 +95,8 @@ def recipe(style: str, title: str, cues: list[dict], duration: float, matched: b
 
 
 def prepare(video: str, text: str, duration: float, style: str, title: str,
-            model_path: str | None = None, *, template: dict | None = None) -> dict:
+            model_path: str | None = None, *, template: dict | None = None,
+            beats: dict | None = None, allow_estimate: bool = True, has_asset: bool = False) -> dict:
     words = []
     try:
         words = VoskASRProvider(model_path).transcribe(video)
@@ -106,11 +107,21 @@ def prepare(video: str, text: str, duration: float, style: str, title: str,
     if template is not None:
         from . import content_templates
 
-        pack = content_templates.recipe(template, title, alignment["cues"], duration, matched)
+        pack = content_templates.recipe(template, title, alignment["cues"], duration, matched,
+                                        beats=beats, allow_estimate=allow_estimate, has_asset=has_asset)
     else:
         pack = recipe(style, title, alignment["cues"], duration, matched)
     warnings = [] if matched else ["语音匹配不可靠或本地识别不可用：已降级为简单字幕，请复核台词与时间。"]
-    if template is not None and matched and len(pack["components"]) == 1:
+    if template is not None and template["id"] == "three-point":
+        if not beats:
+            warnings.append("项目没有保存三点结构：只保留标题；可用三点干货模板新建计划。")
+        elif len(pack["components"]) == 1:
+            warnings.append("无法可靠安排三个方法：只保留标题，请人工调整包装。")
+        elif not matched:
+            warnings.append("三个方法的切换按文案长度估算，可能与语音不一致，请播放复核。")
+    if template is not None and template["id"] == "product-demo" and not has_asset:
+        warnings.append("未提供展示素材：已使用全屏口播；可添加本地图片或视频重新包装。")
+    if template is not None and template["id"] not in ("three-point", "product-demo") and matched and len(pack["components"]) == 1:
         warnings.append("语音已匹配，但缺少适合卡片长度的短句：仅保留标题，请缩短文案或人工调整包装。")
     return {"alignment": {**alignment, "engine": "vosk", "minimum_word_confidence": 0.8,
                            "word_times_are": "recognizer_estimates_not_forced_alignment",

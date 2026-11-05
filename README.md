@@ -19,6 +19,18 @@
 
 ## 选一个模板开始
 
+| [三点干货｜把一个方法讲清楚](templates/three-point/README.md) | [演示种草｜边讲边展示](templates/product-demo/README.md) |
+| :---: | :---: |
+| <a href="templates/three-point/README.md"><img src="docs/demos/three-point.gif" width="216" alt="三点干货：三个方法逐项出现"></a> | <a href="templates/product-demo/README.md"><img src="docs/demos/product-demo.gif" width="216" alt="演示种草布局：素材主画面加主播小窗"></a> |
+| 开场点题 → 三个方法 → 一句收尾 | 全屏主播 → 展示素材＋主播小窗 → 回到主播 |
+| 人像＋一个主题 | 人像＋产品和真实特点；可附产品图或视频 |
+| “分享三个整理桌面的小习惯” | “介绍我的产品，展示这张产品图” |
+| [使用这个模板 →](templates/three-point/README.md) | [使用这个模板 →](templates/product-demo/README.md) |
+
+两条无声动图均复用已有「下班放松」原片；右侧的图文卡只是**素材展示布局示意**，不是产品推荐成片。字幕和切换时间为估算，需播放复核。
+
+**其他模板**
+
 | [产品推荐](templates/product-intro/README.md) | [知识分享](templates/knowledge-share/README.md) | [情感共鸣](templates/empathy/README.md) |
 | :---: | :---: | :---: |
 | <a href="templates/product-intro/README.md"><img src="docs/demos/product-intro.gif" width="216" alt="产品推荐包装预览：复用测试对白，强调短句和调整景别"></a> | <a href="templates/knowledge-share/README.md"><img src="docs/demos/knowledge-share.gif" width="216" alt="知识分享包装预览：复用测试对白，逐项推进要点"></a> | <a href="templates/empathy/README.md"><img src="docs/demos/empathy.gif" width="216" alt="情感共鸣包装预览：复用测试对白，稀疏暖色关键句"></a> |
@@ -29,7 +41,7 @@
 
 每个模板包含可替换文案槽位、默认包装和可运行示例。助手负责填内容与安排时间，你无需改模板代码；也可以直接说想做什么，让助手替你选。
 
-上面是**同一条测试口播的实际包装动图**，用于预览呈现方式，尚非三个题材各自的新成片。本轮新增生成请求为 **0**；GIF 无声，原对白与表演不变。[样例来源](docs/demos/README.md) · [还缺哪些完整 demo](docs/DEMO_ASSETS.md)
+其他三个动图使用**同一条测试口播**，用于预览包装，尚非三个题材各自的成片。所有 GIF 无声。[样例来源](docs/demos/README.md) · [还缺哪些完整 demo](docs/DEMO_ASSETS.md)
 
 ## 一句话开始
 
@@ -43,7 +55,7 @@
 
 | 你来决定 | 助手来完成 |
 | --- | --- |
-| 给照片、说想法 | 准备环境，选择模板，按三段结构拟好台词与标题 |
+| 给照片、说想法 | 准备环境，选择模板，拟好台词与标题 |
 | 登录自己的账号，确认方案与费用 | 生成片段，等待或恢复原任务，完成本地包装 |
 | 看成片，提出修改 | 交付 MP4；复用原片修改标题、字幕呈现与风格 |
 
@@ -101,7 +113,7 @@
 | 文字对比 · 步骤推进 | 对照两种说法，逐步讲解一个方法 |
 | 主播景别 · 复盘板 | 小幅调整画面，收束已讲过的要点 |
 
-自动配方会尝试本地语音匹配；缺模型、文字不匹配或置信度不足时，使用简单标题与估算字幕，并提示复核。识别出的短句时间也不是逐词强制对齐。
+自动配方会尝试本地语音匹配；缺模型、文字不匹配或置信度不足时，字幕时间需要估算。三点干货的单段视频还会按文案长度估算三个方法的切换时间；多段视频则只保留标题。结果均需播放复核，识别出的短句时间也不是逐词强制对齐。
 
 先看[8 个组件的实际动图与用法](docs/COMPONENT_GALLERY.md)，再让助手添加需要的效果。参数、时间线和复现方法见[本地包装指南](docs/LOCAL_PACKAGING.md)。
 

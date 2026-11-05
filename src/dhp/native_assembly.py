@@ -123,7 +123,8 @@ def _tail_duration(video: Path, duration: float, ffmpeg: str) -> float:
 
 def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
              presentation: dict | None = None, *, auto_request: str | None = None,
-             asr_model: str | None = None, template: dict | None = None) -> dict:
+             asr_model: str | None = None, template: dict | None = None,
+             beats: dict | None = None, asset: dict | None = None) -> dict:
     """Produce an experimental subtitled cut from completed native jobs.
 
     The input hashes are checked before rendering. Default captions divide each
@@ -176,6 +177,21 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             raise ValueError(f"The original video in {directory} is missing or its checksum changed.")
         inputs.append({"job_dir": str(directory), "video": video, "sha256": expected.lower(), "text": text})
 
+    if beats is not None:
+        from . import content_templates
+        from .make import split_script
+
+        if not template or template["id"] not in ("three-point", "product-demo"):
+            raise ValueError("Narrative beats require a supported content template.")
+        if split_script(content_templates.narration({"beats": beats}, template)) != [x["text"] for x in inputs]:
+            raise ValueError("Narrative beats do not match the completed jobs.")
+    if asset is not None:
+        if not template or template["id"] != "product-demo":
+            raise ValueError("Showcase media requires the product-demo template.")
+        from . import showcase
+
+        showcase.verify_asset(asset)
+
     executable = _find_ffmpeg(ffmpeg)
     for item in inputs:
         measured = _duration(item["video"], executable)
@@ -222,9 +238,16 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
 
             automatic = auto_pack.prepare(str(raw), "".join(item["text"] for item in inputs),
                                           raw_duration, presentation["style"], presentation["title"], asr_model,
-                                          template=template)
+                                          template=template, beats=beats, allow_estimate=len(inputs) == 1,
+                                          has_asset=asset is not None)
             pack = automatic["pack"]
             presentation = {**presentation, "pack": pack}
+        scene = None
+        if asset is not None:
+            scene = showcase.scene(raw_duration, automatic["alignment"]["cues"],
+                                   automatic["alignment"]["status"] == "matched", beats, len(inputs) == 1)
+            if scene["timing"] == "estimated":
+                automatic["warnings"].append("素材展示区间为估算，请播放复核画面切换与语音。")
         timing_scale = min(1.0, raw_duration / sum(item["duration_sec"] for item in inputs))
         for item in inputs:
             text = " ".join(item["text"].split())
@@ -269,14 +292,19 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             caption_filter = packaging.subtitle_filter(presentation)
         final = work / "final.mp4"
         reframe = packaging_components.reframe_filter(pack) if pack else ""
-        _run([executable, "-nostdin", "-v", "error", "-i", str(raw),
-              "-vf", reframe + caption_filter,
-              "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-              "-c:a", "copy", "-movflags", "+faststart", str(final)], cwd=work)
+        if scene is not None:
+            showcase.render(raw, asset, scene, final, executable, caption_filter, work)
+        else:
+            _run([executable, "-nostdin", "-v", "error", "-i", str(raw),
+                  "-vf", reframe + caption_filter,
+                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                  "-c:a", "copy", "-movflags", "+faststart", str(final)], cwd=work)
         # Final full decode verifies the produced streams, not speech accuracy.
         final_duration = _duration(final, executable)
         if any(_sha256(item["video"]) != item["sha256"] for item in inputs):
             raise ValueError("A source video changed during assembly; no completed output was saved.")
+        if asset is not None:
+            showcase.verify_asset(asset)
         unique_sources = len({item["sha256"] for item in inputs})
         report = {
             "status": "assembled", "quality_verdict": "unverified", "experimental": True,
@@ -312,6 +340,9 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         if automatic:
             if template is not None:
                 report["template"] = template
+            if scene is not None:
+                report["showcase"] = {"asset": asset, "scene": scene,
+                                      "layout": "media_main_presenter_lower_right", "asset_audio": "muted"}
             report.update(auto_request=auto_request, alignment=automatic["alignment"], warnings=automatic["warnings"],
                           subtitle_timing=("vosk_matched_sentence_bounds" if automatic["alignment"]["status"] == "matched"
                                            else "estimated_from_segment_container_duration"))
