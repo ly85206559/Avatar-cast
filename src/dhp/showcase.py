@@ -14,6 +14,15 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
 
 
+def validate_renderer(renderer: str, template: dict | None, asset: dict | list[dict] | None) -> None:
+    if renderer not in ("ffmpeg", "remotion"):
+        raise ValueError("Renderer must be ffmpeg or remotion.")
+    if renderer == "remotion" and (not template or template.get("id") != "product-demo"):
+        raise ValueError("Remotion currently supports the product-demo template.")
+    if isinstance(asset, list) and renderer != "remotion":
+        raise ValueError("Multiple showcase assets require --renderer remotion.")
+
+
 def _digest(path: Path) -> str:
     value = hashlib.sha256()
     with path.open("rb") as source:
@@ -22,8 +31,13 @@ def _digest(path: Path) -> str:
     return value.hexdigest()
 
 
-def prepare_asset(path: str) -> dict:
+def prepare_asset(path: str | list[str]) -> dict | list[dict]:
     """Inspect a local image or video before including it in a plan."""
+    if isinstance(path, list):
+        if not path or any(not isinstance(item, str) for item in path):
+            raise ValueError("Provide one or more local showcase paths.")
+        items = [prepare_asset(item) for item in path]
+        return items[0] if len(items) == 1 else items
     if not isinstance(path, str) or not path.strip():
         raise ValueError("Showcase media must be a local file path.")
     source = Path(path).expanduser().resolve()
@@ -50,7 +64,13 @@ def prepare_asset(path: str) -> dict:
     return {"path": str(source), "sha256": _digest(source), "type": kind}
 
 
-def validate_asset(asset: dict) -> None:
+def validate_asset(asset: dict | list[dict]) -> None:
+    if isinstance(asset, list):
+        if not asset or any(not isinstance(item, dict) for item in asset):
+            raise ValueError("Invalid showcase media list.")
+        for item in asset:
+            validate_asset(item)
+        return
     if (not isinstance(asset, dict) or set(asset) != {"path", "sha256", "type"}
             or not isinstance(asset["path"], str) or not Path(asset["path"]).is_absolute()
             or not re.fullmatch(r"[0-9a-f]{64}", str(asset["sha256"]))
@@ -62,8 +82,12 @@ def validate_asset(asset: dict) -> None:
         raise ValueError("Invalid showcase media type in the plan.")
 
 
-def verify_asset(asset: dict) -> None:
+def verify_asset(asset: dict | list[dict]) -> None:
     validate_asset(asset)
+    if isinstance(asset, list):
+        for item in asset:
+            verify_asset(item)
+        return
     path = Path(asset["path"])
     if not path.is_file() or _digest(path) != asset["sha256"]:
         raise ValueError("Showcase media changed or is missing; select it again.")

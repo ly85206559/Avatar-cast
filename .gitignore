@@ -9,3 +9,4 @@ clips/
 *.mp3
 *.wav
 .env
+node_modules/

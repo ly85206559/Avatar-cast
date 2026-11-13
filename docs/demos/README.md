@@ -1,5 +1,7 @@
 # 模板与组件预览素材
 
+`product-demo-remotion.gif` 与对应 JPG 使用同一条「下班放松」原片及已有示意卡的两份裁切，演示本地 Whisper 与 Remotion 动态包装。整句匹配未通过，字幕和素材区间为估时；花字来自局部可靠匹配词。GIF 无声，可用 `scripts/preview_remotion.py` 重现本地有声对照。
+
 使用者已同意公开展示既有虚拟形象样片；这些静态帧和无声动图用于本仓库的模板选择与组件图鉴。本轮仅从已完成的原片进行本地包装、截帧和 GIF 导出，没有新生成请求。
 
 - `product-intro / knowledge-share / empathy`：同一条约 10 秒流程测试口播，三种模板的实际包装。原片 SHA-256 为 `967c7a31e552c8620563b528aaddf6b94a370511a3782c5fd079b851d8e85a63`。三条本地 Vosk 匹配成功，组件时间仍为识别估计。

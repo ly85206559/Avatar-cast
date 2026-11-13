@@ -2,6 +2,8 @@
 
 ## 已补齐并可公开查看
 
+Remotion 动态版新增 [无声预览](demos/product-demo-remotion.gif) 和 [截图](demos/product-demo-remotion.jpg)，使用已有「下班放松」口播与两份裁切示意卡，验证局部可靠匹配词花字、多素材与主播小窗。整句匹配未通过，字幕和展示区间仍为估时。用 `scripts/preview_remotion.py --job-dir JOB --asr-model LOCAL_MODEL --output-dir NEW_OUTPUT` 可重现完整本地对照及原声音频哈希检查。
+
 | 材料 | 本次产物 | 范围 |
 | --- | --- | --- |
 | 3 个模板的包装预览 | 每个模板 1 张 JPG、1 条约 10 秒无声 GIF | 同一条已有流程测试口播；只展示配方，不代表完整题材演示 |

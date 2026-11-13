@@ -1,5 +1,7 @@
 # 已有原片的本地组件包装
 
+需要 Whisper 词级时间轴、多份素材、动态字幕和主播小窗时，使用 [Remotion 动态种草模板](REMOTION.md)。它通过同一制作 CLI 调用本地渲染，生成服务调用次数为零。
+
 想直接选成品结构，先看[内容模板](../templates/README.md)；想指定某个效果，先看[8 个组件的实际动图与用法](COMPONENT_GALLERY.md)。模板项目会在 `run` / `resume` 完成后自动尝试包装；已有原片可用 `make restyle --template ID`，不会重新生成对白。三点干货需要计划中保存对应的三个方法，否则只保留标题并提示。
 
 演示种草可额外使用一份本地图片或视频：`make restyle --job-dir JOB --template product-demo --asset MEDIA`。有展示文案角色时按角色定位，否则按总时长估算；结果需播放复核。素材音轨静音，主播原声保留。替换素材使用新的编辑输出，不改原计划。

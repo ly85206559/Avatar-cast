@@ -8,10 +8,25 @@ import re
 import subprocess
 
 from .asr_vosk import VoskASRProvider
+from .asr_whisper import WhisperASRProvider
 
 
 def _clean(text: str) -> str:
     return "".join(c for c in text.casefold() if c.isalnum())
+
+
+def exact_words(text: str, words: list[dict]) -> list[dict]:
+    """Select complete, confident words inside exact transcript/script matches."""
+    recognized = "".join(_clean(word["word"]) for word in words)
+    blocks = difflib.SequenceMatcher(None, _clean(text), recognized, autojunk=False).get_matching_blocks()
+    selected, offset = [], 0
+    for word in words:
+        size = len(_clean(word["word"]))
+        if (2 <= size <= 8 and word["conf"] >= 0.8
+                and any(block.b <= offset and offset + size <= block.b + block.size for block in blocks)):
+            selected.append(word)
+        offset += size
+    return selected
 
 
 def match_cues(text: str, words: list[dict], duration: float) -> dict:
@@ -96,10 +111,14 @@ def recipe(style: str, title: str, cues: list[dict], duration: float, matched: b
 
 def prepare(video: str, text: str, duration: float, style: str, title: str,
             model_path: str | None = None, *, template: dict | None = None,
-            beats: dict | None = None, allow_estimate: bool = True, has_asset: bool = False) -> dict:
+            beats: dict | None = None, allow_estimate: bool = True, has_asset: bool = False,
+            engine: str = "vosk") -> dict:
+    if engine not in ("vosk", "whisper"):
+        raise ValueError("ASR engine must be vosk or whisper.")
     words = []
     try:
-        words = VoskASRProvider(model_path).transcribe(video)
+        provider = WhisperASRProvider if engine == "whisper" else VoskASRProvider
+        words = provider(model_path).transcribe(video)
         alignment = match_cues(text, words, duration)
     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
         alignment = {"status": "fallback", "reason": "local_asr_unavailable", "detail": str(exc), "cues": []}
@@ -123,7 +142,10 @@ def prepare(video: str, text: str, duration: float, style: str, title: str,
         warnings.append("未提供展示素材：已使用全屏口播；可添加本地图片或视频重新包装。")
     if template is not None and template["id"] not in ("three-point", "product-demo") and matched and len(pack["components"]) == 1:
         warnings.append("语音已匹配，但缺少适合卡片长度的短句：仅保留标题，请缩短文案或人工调整包装。")
-    return {"alignment": {**alignment, "engine": "vosk", "minimum_word_confidence": 0.8,
+    reliable_words = ([] if alignment.get("reason") in ("local_asr_unavailable", "invalid_or_missing_word_timing")
+                      else exact_words(text, words))
+    return {"alignment": {**alignment, "engine": engine, "minimum_word_confidence": 0.8,
+                           "matched_words": reliable_words,
                            "word_times_are": "recognizer_estimates_not_forced_alignment",
                            "review_required": True, "words": words},
             "pack": pack,

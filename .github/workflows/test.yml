@@ -25,6 +25,29 @@ jobs:
       - name: Run offline demo (no spending, no network models)
         run: dhp demo --out outputs/demo-ci
 
+  remotion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/dhp/remotion_template/package-lock.json
+      - name: Install local rendering tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg fontconfig fonts-noto-cjk
+          pip install -e ".[test]"
+          npm ci --prefix src/dhp/remotion_template
+      - name: Render local fixture and check scene pixels and original audio
+        env:
+          REMOTION_RENDER_TEST: "1"
+          REMOTION_BROWSER_EXECUTABLE: /usr/bin/google-chrome
+        run: python -m pytest -q tests/test_whisper_remotion.py
+
   unix-gateway-setup:
     strategy:
       matrix:

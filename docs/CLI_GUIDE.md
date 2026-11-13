@@ -2,6 +2,8 @@
 
 [返回首页](../README.md) · [让助手代为操作](../skills/avatarcast/SKILL.md) · [本地包装](LOCAL_PACKAGING.md)
 
+多素材与动态花字使用 `product-demo --renderer remotion`，可重复传入 `--asset`。首次环境准备、Whisper 模型与 Remotion 许可见 [动态种草指南](REMOTION.md)。
+
 本指南使用当前的 Grok 原生路线：形象与台词一起生成画面和声音，再在本机包装。需要自己的 Grok Bot 账号与可用额度；不支持锁定已有 WAV。安装、检查和计划不提交生成，真实生成需要先确认完整方案与费用。
 
 ## 1. 准备本机环境

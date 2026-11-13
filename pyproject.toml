@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 # Real offline Chinese ASR (model itself is NOT bundled; see asr_vosk.py).
 asr = ["vosk"]
+whisper = ["faster-whisper>=1.1,<2"]
 test = ["pytest"]
 native = ["imageio-ffmpeg"]
 
@@ -25,6 +26,7 @@ dhp = "dhp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["dhp"]
 
 [tool.setuptools.package-data]
-dhp = ["template_data/*.json"]
+dhp = ["template_data/*.json", "remotion_template/*.json", "remotion_template/*.mjs", "remotion_template/*.tsx"]

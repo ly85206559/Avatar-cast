@@ -124,7 +124,8 @@ def _tail_duration(video: Path, duration: float, ffmpeg: str) -> float:
 def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
              presentation: dict | None = None, *, auto_request: str | None = None,
              asr_model: str | None = None, template: dict | None = None,
-             beats: dict | None = None, asset: dict | None = None) -> dict:
+             beats: dict | None = None, asset: dict | list[dict] | None = None,
+             renderer: str = "ffmpeg", asr_engine: str | None = None) -> dict:
     """Produce an experimental subtitled cut from completed native jobs.
 
     The input hashes are checked before rendering. Default captions divide each
@@ -149,6 +150,18 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
     pack = presentation.get("pack") if presentation else None
     if pack is not None and auto_request is not None:
         raise ValueError("Choose an automatic request or an explicit component timeline.")
+    from .showcase import validate_renderer
+
+    validate_renderer(renderer, template, asset)
+    if renderer == "remotion" and (pack is not None or auto_request is None):
+        raise ValueError("Remotion uses the product-demo automatic template.")
+    if renderer == "remotion":
+        from .remotion_render import check_setup
+
+        check_setup()
+    asr_engine = asr_engine or ("whisper" if renderer == "remotion" else "vosk")
+    if asr_engine not in ("vosk", "whisper"):
+        raise ValueError("ASR engine must be vosk or whisper.")
     trim_tail = bool(presentation) and pack is None and auto_request is None
     output = Path(output_dir).expanduser().absolute()
     if os.path.lexists(output):
@@ -229,6 +242,7 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
 
         captions = work / "subtitles.srt"
         cues = []
+        caption_cues = []
         offset = 0.0
         cue_index = 0
         raw_duration = _duration(raw, executable)
@@ -239,7 +253,7 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             automatic = auto_pack.prepare(str(raw), "".join(item["text"] for item in inputs),
                                           raw_duration, presentation["style"], presentation["title"], asr_model,
                                           template=template, beats=beats, allow_estimate=len(inputs) == 1,
-                                          has_asset=asset is not None)
+                                          has_asset=asset is not None, engine=asr_engine)
             pack = automatic["pack"]
             presentation = {**presentation, "pack": pack}
         scene = None
@@ -260,10 +274,12 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
                 elapsed_weight += weight
                 end = segment_start + item["duration_sec"] * timing_scale * elapsed_weight / sum(weights)
                 cues.append(f"{cue_index}\n{_timestamp(offset)} --> {_timestamp(end)}\n" + "\n".join(group))
+                caption_cues.append({"text": "\n".join(group), "start": offset, "end": end})
                 offset = end
         captions.write_text("\n\n".join(cues) + "\n", encoding="utf-8")
         if automatic and automatic["alignment"]["status"] == "matched":
             aligned_cues = automatic["alignment"]["cues"]
+            caption_cues = aligned_cues
             captions.write_text("\n\n".join(
                 f"{index}\n{_timestamp(cue['start'])} --> {_timestamp(cue['end'])}\n"
                 + "\n".join(textwrap.wrap(cue["text"], width=16, break_long_words=True, break_on_hyphens=False))
@@ -292,7 +308,13 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             caption_filter = packaging.subtitle_filter(presentation)
         final = work / "final.mp4"
         reframe = packaging_components.reframe_filter(pack) if pack else ""
-        if scene is not None:
+        edit = None
+        if renderer == "remotion":
+            from . import remotion_render
+
+            edit = remotion_render.render(raw, asset, scene, automatic["alignment"], caption_cues,
+                                          presentation["title"], raw_duration, final, executable, work)
+        elif scene is not None:
             showcase.render(raw, asset, scene, final, executable, caption_filter, work)
         else:
             _run([executable, "-nostdin", "-v", "error", "-i", str(raw),
@@ -315,6 +337,7 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
             "presentation": presentation,
             "tail_trim": "conservative_near_silence_detection" if trim_tail else "disabled",
             "generation_requests": 0,
+            "renderer": renderer,
             "component_timing": pack["timing"] if pack else "not_used",
             "rendered_components": [item["use"] for item in pack["components"]] if pack else [],
             "unique_source_count": unique_sources, "reused_source_video": unique_sources < len(inputs),
@@ -344,12 +367,14 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
                 report["showcase"] = {"asset": asset, "scene": scene,
                                       "layout": "media_main_presenter_lower_right", "asset_audio": "muted"}
             report.update(auto_request=auto_request, alignment=automatic["alignment"], warnings=automatic["warnings"],
-                          subtitle_timing=("vosk_matched_sentence_bounds" if automatic["alignment"]["status"] == "matched"
+                          subtitle_timing=(f"{asr_engine}_matched_sentence_bounds" if automatic["alignment"]["status"] == "matched"
                                            else "estimated_from_segment_container_duration"))
             report["notice"] = ("Local ASR timestamps are estimates and require playback review. "
                                 "Unmatched speech falls back to estimated captions. No generation was requested.")
             for name, value in (("pack.json", pack), ("alignment.json", automatic["alignment"])):
                 (work / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        if edit is not None:
+            (work / "remotion.json").write_text(json.dumps(edit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         # Publish QA in an explicitly incomplete state first. Only mark it
         # assembled after the final file is fully copied into its new folder.
         staged_report = {**report, "status": "assembling"}
@@ -361,6 +386,8 @@ def assemble(job_dirs: list[str], output_dir: str, ffmpeg: str | None = None,
         if automatic:
             for name in ("pack.json", "alignment.json"):
                 _copy_exclusive(work / name, output / name)
+        if edit is not None:
+            _copy_exclusive(work / "remotion.json", output / "remotion.json")
         final_identity = _copy_exclusive(work / "final.mp4", output / "final.mp4")
         try:
             current_qa = (output / "qa.json").stat(follow_symlinks=False)
