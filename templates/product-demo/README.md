@@ -4,9 +4,15 @@
 
 [返回模板选择](../../README.md#选一个模板开始) · [所有模板用法](../README.md)
 
-![演示种草布局：素材主画面、主播小窗，再切回主播](../../docs/demos/product-demo.gif)
+| 成片封面 | 花字、素材与主播小窗 |
+| :---: | :---: |
+| <a href="https://github.com/ly85206559/Avatar-cast/releases/download/demo-product-demo-20261115/avatarcast-product-demo.mp4"><img src="../../docs/demos/avatarcast-product-demo.jpg" width="240" alt="AvatarCast 种草成片封面：虚拟主播和文案、字幕、剪辑三个花字"></a> | <img src="../../docs/demos/avatarcast-product-demo.gif" width="240" alt="6 秒成片节选：开场花字、步骤讲解、展示卡与界面截图切换、右下角主播小窗"> |
 
-上图使用已有「下班放松」口播和根据原对白绘制的示意卡，展示镜头切换，**不是产品推荐成片**。GIF 无声；素材展示区间与字幕为估算，需播放复核。本地重包没有提交生成。
+[▶ 观看或下载完整种草视频 · 87.82 秒 · 9:16 · 720p · 有声 MP4](https://github.com/ly85206559/Avatar-cast/releases/download/demo-product-demo-20261115/avatarcast-product-demo.mp4)
+
+这条成片介绍 AvatarCast 自己，按**开场提问 → 制作步骤 → 历史样片 → 模板与素材展示 → 包装前后对照 → 开始使用**展开。可以借用它的结构，替换成自己的产品、特点和展示素材。
+
+Grok Bot 提供 9 段原生画面与声音，本地用 Whisper 时间数据、Remotion 与 FFmpeg 完成包装，并人工校对字幕、花字、抠像与跨段衔接。它包含逐段审片和人工精修；日常使用从下方的短片流程开始。GIF 拼接三个时间区间，无声循环；封面和完整视频来自同一份已确认成片。[素材来源与截取时间](../../docs/demos/README.md#avatarcast-种草完整成片)
 
 ## 附上照片，直接告诉助手
 

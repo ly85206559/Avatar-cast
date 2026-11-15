@@ -21,13 +21,15 @@
 
 | [三点干货｜把一个方法讲清楚](templates/three-point/README.md) | [演示种草｜边讲边展示](templates/product-demo/README.md) |
 | :---: | :---: |
-| <a href="templates/three-point/README.md"><img src="docs/demos/three-point.gif" width="216" alt="三点干货：三个方法逐项出现"></a> | <a href="templates/product-demo/README.md"><img src="docs/demos/product-demo.gif" width="216" alt="演示种草布局：素材主画面加主播小窗"></a> |
+| <a href="templates/three-point/README.md"><img src="docs/demos/three-point.gif" width="216" alt="三点干货：三个方法逐项出现"></a> | <a href="templates/product-demo/README.md"><img src="docs/demos/avatarcast-product-demo.gif" width="216" alt="AvatarCast 实际种草成片节选：开场花字、制作步骤、素材切换与主播小窗"></a> |
 | 开场点题 → 三个方法 → 一句收尾 | 全屏主播 → 展示素材＋主播小窗 → 回到主播 |
 | 人像＋一个主题 | 人像＋产品和真实特点；可附产品图或视频 |
 | “分享三个整理桌面的小习惯” | “介绍我的产品，展示这张产品图” |
-| [使用这个模板 →](templates/three-point/README.md) | [使用这个模板 →](templates/product-demo/README.md) |
+| [使用这个模板 →](templates/three-point/README.md) | [使用这个模板 →](templates/product-demo/README.md) · [看完整视频 ▶](https://github.com/ly85206559/Avatar-cast/releases/download/demo-product-demo-20261115/avatarcast-product-demo.mp4) |
 
-两条无声动图均复用已有「下班放松」原片；右侧的图文卡只是**素材展示布局示意**，不是产品推荐成片。字幕和切换时间为估算，需播放复核。
+**演示种草已补齐实际成片。** 虚拟主播用 87.82 秒介绍 AvatarCast，串起开场花字、步骤讲解、素材展示、主播小窗和包装前后对照。上方 GIF 为 6 秒无声节选；[完整有声 MP4](https://github.com/ly85206559/Avatar-cast/releases/download/demo-product-demo-20261115/avatarcast-product-demo.mp4) 为 9:16、720p，约 24 MB。[看封面和制作说明](templates/product-demo/README.md)
+
+三点干货动图复用已有「下班放松」原片，字幕和方法切换为估时。种草成片由 Grok Bot 分段生成，在本地以 Whisper 时间数据、Remotion 和人工校对完成包装。
 
 **其他模板**
 

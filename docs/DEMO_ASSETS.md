@@ -2,10 +2,13 @@
 
 ## 已补齐并可公开查看
 
+**演示种草已有完整题材成片。** [AvatarCast 产品介绍 MP4](https://github.com/ly85206559/Avatar-cast/releases/download/demo-product-demo-20261115/avatarcast-product-demo.mp4) 为 87.82 秒、9:16、720p，已附[封面 JPG](demos/avatarcast-product-demo.jpg) 与[6 秒 GIF](demos/avatarcast-product-demo.gif)。同一份确认版本包含开场花字、素材切换、主播小窗与包装前后对照，完整视频托管在 GitHub Release。使用示例见[演示种草模板](../templates/product-demo/README.md)，来源与截取信息见[素材说明](demos/README.md#avatarcast-种草完整成片)。
+
 Remotion 动态版新增 [无声预览](demos/product-demo-remotion.gif) 和 [截图](demos/product-demo-remotion.jpg)，使用已有「下班放松」口播与两份裁切示意卡，验证局部可靠匹配词花字、多素材与主播小窗。整句匹配未通过，字幕和展示区间仍为估时。用 `scripts/preview_remotion.py --job-dir JOB --asr-model LOCAL_MODEL --output-dir NEW_OUTPUT` 可重现完整本地对照及原声音频哈希检查。
 
 | 材料 | 本次产物 | 范围 |
 | --- | --- | --- |
+| AvatarCast 演示种草成片 | `avatarcast-product-demo.jpg`、`avatarcast-product-demo.gif`、GitHub Release 有声 MP4 | 9 段口播，结合本地 Whisper 时间数据、Remotion、FFmpeg 和人工校对；本次从已确认成片导出 |
 | 3 个模板的包装预览 | 每个模板 1 张 JPG、1 条约 10 秒无声 GIF | 同一条已有流程测试口播；只展示配方，不代表完整题材演示 |
 | 8 个组件的图鉴 | 每个组件 1 张 JPG、1 条约 4 秒无声 GIF、1 份 JSON 示例 | 实际本地渲染，包含进入、保持、切换／退出；时间为估算 |
 | 本地验证视频 | 3 条模板包装 MP4、8 条组件 MP4、播放页与验证记录 | 仅放在 `outputs/template-library-v1/`，未公开原片、声音与私人任务记录 |
@@ -31,7 +34,7 @@ Remotion 动态版新增 [无声预览](demos/product-demo-remotion.gif) 和 [�
 
 ## 后续能力完成后再补
 
-- **完整商品演示**：真实产品原片或已确认的产品台词、授权商品图／视频；商品素材布局已支持，仍缺对应产品题材样片。
+- **实物商品演示**：已有 AvatarCast 软件介绍成片；继续补充有授权商品图／视频的实物产品示例。
 - **步骤教程**：3 个真实操作步骤和对应截图／录屏；先补横屏与界面聚焦。
 - **发布解读**：官方资料或演示素材；先补主播与资料分栏。
 - **景深字**：有头顶与两侧留白的中景原片；先补跨平台分割与合成。
